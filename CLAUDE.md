@@ -35,7 +35,7 @@
 | `models/` | GGUF 가중치 (gitignore; 이 사본엔 EXAONE-3.5-7.8B만 복사됨) |
 | `scripts/` | 파이프라인 전체 (아래 실행 흐름) |
 | `review/` | 사람 검수용 정적 HTML 3종 + full_cards.json |
-| `logs/` | 변환·양자화·서빙·judge 실행 로그 — 증거 보존용 |
+| `logs/` | 변환·양자화·서빙·수집·생성 실행 로그 — 증거 보존용, **로컬 전용**(gitignore) |
 | `notes/` | 연구 노트 15편 (진입점: [notes/README.md](notes/README.md)) |
 | `archive/` | 파일럿 잔여물 · 구버전 스냅샷 · Notion 원본 export · `aihub_essay_2024_raw/`(AI Hub 논증문 원본, [사용 불가 판정](mash/aihub_verdict.md)의 근거물) · `handoff_20260811.md`(인수 시점 기획, progress.md § M 으로 대체됨) · `claude-home-backup/`(**이메일·대화 전문 포함 — 커밋 금지**) — **읽기 전용, 삭제 금지** |
 | `team_brief.md` | 팀원 공유용 요약 (루트) — 상세는 progress.md·notes/ |

@@ -7,6 +7,14 @@
   **본문을 주고 초록을 쓰게 하면** 과제 자체가 달라져 이 문제가 사라지고,
   연구자가 실제로 LLM 을 쓰는 방식과도 가장 가깝다.
 
+⚠️ 페이지네이션 한계와 우회:
+  D267/D268 은 totalCount 가 9,957 / 291,500 이라도 **offset 5,000 / 4,000 을 넘기면 빈 응답**을 준다.
+  전량 훑기로는 본문 보유 논문을 36편밖에 못 얻는다(실측).
+  대신 **`artiId` 요청변수**가 동작한다 — 논문 ID 를 주면 그 논문의 전 문단을 한 번에 준다
+  (실측 158문단 54,971자). 그래서 ① 순차 훑기로 초록 보유 논문 ID 목록을 얻고
+  ② 각 ID 로 본문을 직접 조회한다. 주의: 파라미터명이 `ARTIID` 면 조용히 무시되고
+  기본 레코드가 돌아온다 — 반드시 `artiId` 로 써야 한다.
+
 두 오퍼레이션을 조인한다 (둘 다 OA학술지 한정):
   · openApiD267List  OA학술지-초록 관리 — USELANG=kor 인 PARA 를 ABSSEQ 순으로 이어붙인다
   · openApiD268List  OA학술지-본문 관리 — TYPE=B101(본문 문단)만 BODYSEQ 순으로 이어붙인다
@@ -42,15 +50,25 @@ def unesc(s):
     return html.unescape(html.unescape(s or ""))
 
 
-def fetch(op, key, page, cnt, retries=4):
-    q = urllib.parse.urlencode({"serviceKey": key, "pageNo": page, "recordCnt": cnt})
+def fetch(op, key, page, cnt, arti_id=None, retries=4):
+    params = {"serviceKey": key, "pageNo": page, "recordCnt": cnt}
+    if arti_id:
+        params["artiId"] = arti_id          # 대소문자 주의: ARTIID 는 무시된다
+    q = urllib.parse.urlencode(params)
     for i in range(retries):
         try:
             with urllib.request.urlopen(f"{BASE}/{op}?{q}", timeout=90) as r:
-                root = ET.fromstring(r.read().decode("utf-8", "replace"))
+                raw = r.read().decode("utf-8", "replace").strip()
+            # 빈 응답은 "그 논문에 본문이 없다" 또는 "offset 한계 초과"라는 **정상 결과**다.
+            # 이걸 예외로 보고 재시도하면 건당 12초씩 버린다(실측: 47건에 9분).
+            if not raw:
+                return []
+            root = ET.fromstring(raw)
             if root.findtext(".//resultCode") != "00":
                 raise RuntimeError(root.findtext(".//resultMsg"))
             return [{c.tag: unesc(c.text) for c in it} for it in root.iter("item")]
+        except ET.ParseError:
+            return []          # 파싱 불가도 같은 취급 — 재시도해도 같은 응답이 온다
         except Exception:
             if i == retries - 1:
                 raise
@@ -100,10 +118,25 @@ def main():
                     lambda it: it.get("USELANG") == "kor", "초록")
     print(f"  → 초록 보유 논문 {len(absts):,}편", flush=True)
 
-    print("본문 수집…", flush=True)
-    bodies = harvest("openApiD268List", key, a.body_pages, 1000,
-                     lambda it: it.get("TYPE") == "B101", "본문")
-    print(f"  → 본문 보유 논문 {len(bodies):,}편", flush=True)
+    # 본문은 순차 훑기로는 offset 4,000 에서 막힌다 → 초록 보유 논문 ID 로 하나씩 직접 조회
+    print(f"본문 조회 (논문 {len(absts):,}편 대상, artiId 직접 질의)…", flush=True)
+    bodies, tried = {}, 0
+    for aid in sorted(absts):
+        if len(bodies) >= a.target * 2:      # 여유분까지만 — 질의 한도(5,000/일) 절약
+            break
+        tried += 1
+        try:
+            items = fetch("openApiD268List", key, 1, 1000, arti_id=aid)
+        except Exception as e:
+            print(f"  {aid} 실패: {e}", file=sys.stderr)
+            continue
+        paras = [it for it in items if it.get("TYPE") == "B101"]
+        if paras:
+            bodies[aid] = paras
+        if tried % 100 == 0:
+            print(f"  {tried}건 질의 · 본문 확보 {len(bodies)}편", flush=True)
+        time.sleep(0.1)
+    print(f"  → 본문 보유 논문 {len(bodies):,}편 (질의 {tried:,}회)", flush=True)
 
     rows, stats = [], collections.Counter()
     for aid in sorted(set(absts) & set(bodies)):

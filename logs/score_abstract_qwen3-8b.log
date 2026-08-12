@@ -1,15 +1,0 @@
-스코어링 모델 로딩: LGAI-EXAONE/EXAONE-4.0-1.2B (cpu, torch.float32)
-Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
-[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
-Loading weights:   0%|          | 0/332 [00:00<?, ?it/s]Loading weights:  27%|██▋       | 88/332 [00:00<00:00, 795.25it/s]Loading weights:  53%|█████▎    | 176/332 [00:00<00:00, 829.57it/s]Loading weights:  78%|███████▊  | 260/332 [00:00<00:00, 515.17it/s]Loading weights:  97%|█████████▋| 322/332 [00:01<00:00, 193.13it/s]Loading weights: 100%|██████████| 332/332 [00:01<00:00, 265.92it/s]
-  10/100
-  20/100
-  30/100
-  40/100
-  50/100
-  60/100
-  70/100
-  80/100
-  90/100
-  100/100
-→ pilot/scores/gen_abstract_qwen3-8b.jsonl
