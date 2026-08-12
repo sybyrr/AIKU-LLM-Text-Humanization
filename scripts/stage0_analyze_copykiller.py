@@ -31,8 +31,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-REC = re.compile(r"^\s*(\d+)\s+(\d{11})\s+(?:([A-Z]\d{4}\.\w+)\s+)?(\d+)%\s*$")
-LONE = re.compile(r"^\s*([A-Z]\d{4}\.\w+)\s*$")
+REC = re.compile(r"^\s*(\d+)\s+(\d{11})\s+(?:([A-Z]\d{4,7}\.\w+)\s+)?(\d+)%\s*$")
+LONE = re.compile(r"^\s*([A-Z]\d{4,7}\.\w+)\s*$")
 
 
 def parse_pdf(path):

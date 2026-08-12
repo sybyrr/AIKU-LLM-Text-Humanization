@@ -59,6 +59,10 @@ def main():
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--format", default="docx", choices=["docx", "txt"],
                     help="카피킬러는 txt 를 받지 않는다 — 기본 docx")
+    ap.add_argument("--skip-first", type=int, default=0,
+                    help="앞에서부터 N개 건너뛴다(이미 검사한 분). 파일 일련번호는 유지되므로 "
+                         "이전 내보내기와 파일명↔내용 대응이 깨지지 않는다. 정렬이 결정적이어야 하므로 "
+                         "--seed 를 이전과 같게 줄 것.")
     ap.add_argument("--batch-size", type=int, default=MAX_FILES,
                     help="배치 폴더 하나에 담을 파일 수 (카피킬러 한도 350)")
     ap.add_argument("--exclude-checked", default="",
@@ -125,11 +129,13 @@ def main():
     # 폴더 하나가 곧 업로드 1회분이므로, 폴더째 전체 선택해 올리면 된다.
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    nb = -(-len(items) // a.batch_size)
     width = max(4, len(str(len(items))))
+    total = len(items)
+    keep = list(enumerate(items))[a.skip_first:]      # 일련번호(i)는 전체 기준을 유지
+    nb = -(-len(keep) // a.batch_size)
     rows = []
-    for i, it in enumerate(items):
-        b = i // a.batch_size + 1
+    for j, (i, it) in enumerate(keep):
+        b = j // a.batch_size + 1
         docs = out / f"batch{b:02d}"
         docs.mkdir(parents=True, exist_ok=True)
         name = f"{a.prefix}{i+1:0{width}d}.{a.format}"
@@ -148,8 +154,11 @@ def main():
 
     n = len(rows)
     total_mb = sum((out / r["batch"] / r["file"]).stat().st_size for r in rows) / 1e6
-    print(f"\n{n:,}개 파일 · {total_mb:.1f}MB → {out}/batch01 … batch{nb:02d}")
-    print(f"  배치 {nb}개 · 폴더당 최대 {a.batch_size}개 (마지막 {n - (nb-1)*a.batch_size}개)")
+    if a.skip_first:
+        print(f"\n앞 {a.skip_first:,}개 건너뜀 (전체 {total:,}개 중)")
+    print(f"{n:,}개 파일 · {total_mb:.1f}MB → {out}/batch01 … batch{nb:02d}")
+    print(f"  배치 {nb}개 · 폴더당 최대 {a.batch_size:,}개 (마지막 {n - (nb-1)*a.batch_size:,}개)")
+    print(f"  파일 일련번호: {rows[0]['file']} ~ {rows[-1]['file']}")
     print(f"  라벨 구성: " + " · ".join(
         f"{k} {v:,}" for k, v in collections.Counter(r["label"] for r in rows).most_common()))
     print(f"정답표: {out}/manifest.csv  (**업로드 금지** — 배치 폴더 바깥에 있음)")
