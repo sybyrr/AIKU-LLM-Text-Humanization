@@ -1,0 +1,155 @@
+# MASH 기반 제안 (0803 · 진민재)
+
+> 원본: Notion "0803- 진민재"
+> 상위: [프로젝트 개요](00-프로젝트-개요.md) · 관련: [개입 지점](13-개입지점.md) · [평가 기준](20-평가기준.md)
+>
+> 이미지 안의 수식은 아래 본문에 LaTeX로 옮겨 적었습니다 (이미지 없이도 읽힘).
+
+---
+
+## Motivation
+
+- preference tuning 쪽으로 생각을 하다 보니, 학습 과정에서 사람이 일일이 해야 하는 일이 너무 많아짐
+    - SFT dataset을 위한 AI 글 후편집, preference data pair 만들기 등..
+- 과제물 제출 당시 AI 탐지를 위해 카피킬러를 많이들 이용 → 카피킬러를 해킹 가능한 방법론 탐색
+    - 카피킬러는 **black-box model**. detector model의 output score 정보만을 이용하는 방법론 필요
+- 작은 모델, 적은 비용으로 굴릴 수 있는 파이프라인 필요
+- 인간이 쓴 글은 katfish 데이터셋 사용 가능
+
+→ **탐지기는 카피킬러, model은 AI가 작성한 text를 받아서 내용을 유지하면서도 탐지기 점수를 낮출 만한 글로 변환**
+
+## Reference
+
+[MASH: Evading Black-Box AI-Generated Text Detectors via Style Humanization](https://arxiv.org/abs/2601.08564) (ACL 2026)
+
+## Key Ideas
+
+- **Detector Model** : sequence를 받아 AI일 확률 [0,1] 출력
+- **Threat Model** : AI text를 받아 detector를 속일 만한 글 출력 s.t. fluency, semantic consistency
+
+$$
+\text{minimize} \quad \mathbb{E}_{\mathbf{x}_{ai} \sim P_{LLM}}\left[D(G_\phi(\mathbf{x}_{ai}))\right],
+$$
+$$
+\text{subject to} \quad \mathcal{S}(\mathbf{x}_{adv}, \mathbf{x}_{ai}) \ge \epsilon, \quad \mathcal{Q}(\mathbf{x}_{adv}) \ge \delta
+$$
+
+![MASH threat model 목적함수 — 탐지기 점수 D를 최소화하되 의미 유사도 S와 품질 Q를 임계값 이상으로 유지](assets/mash-threat-model-objective.png)
+
+- Style-transfer task로 변환
+
+## Method
+
+![MASH 프레임워크 전체 구조 (원논문 Figure 2) — 4단계: (1) Data Construction으로 병렬 데이터 합성, (2) Style-Injection SFT로 지도학습 초기화, (3) DPO Alignment로 탐지기 결정경계 대비 최적화, (4) Inference-Time Adversarial Refinement로 최종 품질 보장](assets/mash-framework-overview.png)
+
+### 1. Data Construction
+
+**AI 글에 대응하는 사람 글을 만들기는 매우 어렵지만, 사람 글을 AI처럼 만들기는 쉽다!**
+
+1. 오픈소스 코퍼스에서 텍스트 수집 후, 탐지기가 확실히 사람으로 판정한 것만 남김 (`D(x_human) < τ`)
+2. 각 사람 글을 Qwen2.5-3B, Llama-3-8B, GPT-2로 패러프레이즈 → `x_ai` 생성
+3. 이 결과를 다시 필터링해 기계 문체가 확실한 것만 남김 (`D(x_ai) > τ`)
+4. 약 **6,000쌍의 `D_pair`** 확보
+
+### 2. Style-injection SFT
+
+단순히 `x_ai`를 넣고 `x_human`을 내뱉는 식으로 학습시키면 style transfer와 내용 보존이 하나의 목적함수에 섞임 → overfit, semantic loss 발생 *(이거 정당성 강화 필요)*
+
+1. `x_ai` (AI 글)가 encoder를 통과해 **content representation vector (CR)** 로 변환
+2. CR이 두 경로로 복제되어, 하나는 **AI Style Representation (ASR)** 과, 하나는 **Human Style Representation (HSR)** 과 concat (두 representation 모두 learnable)
+3. 각각의 경로에서 fusion layer와 decoder 통과 (fusion layer에서 가중치 공유)
+4. decoder 통과 후 sequence와 원본 sequence와의 cross entropy loss 측정
+    - ASR을 붙인 경로는 AI text와의 loss를, HSR을 붙인 경로는 human text와의 loss를 측정
+5. 두 loss를 interpolate 후 optimize
+
+$$
+\mathcal{L}_{recon} = -\sum \log P_\theta(\mathbf{x}_{ai} \mid \mathbf{x}_{ai}, \mathbf{s}_{ai}) \tag{4}
+$$
+$$
+\mathcal{L}_{trans} = -\sum \log P_\theta(\mathbf{x}_{human} \mid \mathbf{x}_{ai}, \mathbf{s}_{human}) \tag{5}
+$$
+$$
+\mathcal{L}_{SFT} = \lambda \mathcal{L}_{recon} + (1-\lambda)\mathcal{L}_{trans}
+$$
+
+![L_recon과 L_trans 정의 (원논문 식 4, 5)](assets/mash-sft-losses.png)
+
+![L_SFT = λ·L_recon + (1−λ)·L_trans](assets/mash-sft-total-loss.png)
+
+두 경로의 역할:
+
+> CR + **ASR**(AI Style Representation) → fusion → 디코더 → AI Logits → 정답 `x_ai`와 CrossEntropy
+
+→ preserves semantic consistency by reconstructing the original AI-generated text
+
+> CR + **HSR**(Human Style Representation) → fusion → 디코더 → Human Logits → 정답 `x_human`과 CrossEntropy
+
+→ imparts human stylistic patterns by generating the target `x_human` conditioned on `s_human`
+
+### 3. DPO Alignment
+
+SFT에서 사람 text가 어떻게 생겼는지 배웠지만, **본인의 text가 얼마나 AI에 가까운지는 배우지 못함** → 탐지기 사용! (decision boundary에서 최대한 멀리 위치시키자.)
+
+1. 1에서 만든 `D_pair` 재사용
+    - prompt `x` = `x_ai`
+    - **chosen** `y_w` = `x_human` (Stage 1에서 확보한 실제 사람 글)
+    - **rejected** `y_l` = `π_SFT(·|x_ai, s_human)`에서 샘플링, 단 `D(y_l) > τ`인 것만 채택 (hard negative)
+        - SFT 모델이 틀린 데이터를 모아서 학습 (추가적인 데이터 수집 X)
+2. 이론상 AI 글에 대한 detector의 score를 reward 신호로 사용
+    - 덜 AI같을수록 보상이 높아야 하니까 inverse scale 사용
+
+$$
+r(x, y) = -C \cdot D(y), \quad C > 0
+$$
+
+![DPO reward 정의 — 탐지기 점수 D(y)에 음의 상수를 곱해 덜 AI다울수록 보상이 커지도록 함](assets/mash-dpo-reward.png)
+
+### 4. Inference-Time Adversarial Refinement
+
+DPO 적용시 품질 저하 발생. 이를 해결하기 위해 추론 시점에 후처리 적용.
+
+1. DPO 이후 출력된 글을 문장 단위로 분해
+2. 각 문장을 문법적으로 고치고, 원본 의미에서 벗어났으면 되돌리라고 GPT-5에게 지시 → 교체할 후보 문장 여러 개 생성됨 (참고를 위한 원본 AI text 제공)
+3. 문장을 perplexity 내림차순으로 정렬 (어색한 것부터)
+4. 2의 문장을 3의 후보 문장으로 바꿔보고, **탐지기가 여전히 human이라 판정할 때만 채택.** 아니면 원문 유지
+
+**Inference time**: `x_ai`를 DPO로 align된 BART에 넣고 `s_human`을 붙여 통과시킴 + Inference-time refinement
+
+---
+
+## Difference — 우리 프로젝트에 적용시 차이점
+
+- **카피킬러는 AI일 확률값을 예측하는 것이 아니라, AI 작성 의심 어절의 비율을 출력** (problem formulation에서 조금 다름)
+    - sol : 카피킬러에서 제공하는 점수를 사용하되, AI label을 붙일 임계값 설정 고도화
+        - ex) 장르별 인간 글 점수의 상위 10% 지점을 임계값으로 선택
+        - AI 작성 의심 문장이라는 fine-grained 정보를 더 이용할 수 있을까? explainability 높이기?
+- **BART는 영어 data로 학습**
+    - sol : [ko-BART](https://huggingface.co/gogamza/kobart-base-v2) 이용 (124M 규모)
+    - tokenizer도 교체 필요
+- **카피킬러 API 없는 것 같음** → Inference-Time Adversarial Refinement 적용 어려움
+- **인간이 쓴 글을 더 확보해야 함** (katfish 데이터는 470편 정도, MASH에서는 6000편 사용)
+    - domain에 대한 논의 필요
+
+## Limitation
+
+- 카피킬러를 잘 통과한다고 해서 사람답다고 말할 수는 없음 / 카피킬러 과적합 가능
+- 원논문에서는 여러 개의 탐지기에 대해 실험. 우리는 아직 카피킬러 하나뿐
+- 원논문에서는 하나의 domain으로 학습한 모델이 다른 domain으로 transfer되지 않기도 함 → 장르별 학습이 필요할 수도 있음
+- 카피킬러가 업데이트되면 모델이 stale
+
+## 미해결 질문
+
+**Q1. 인간 글 데이터셋 어떻게 확보?** katfish만으로는 부족.
+
+**Q1-1. domain은 어떻게?** MASH의 경우 학생 논증문·뉴스·창작소설·STEM·사회과학·인문학 사용.
+
+| 도메인 | 인간 코퍼스 | 용도 |
+| --- | --- | --- |
+| 논증문 | 모두의 말뭉치 `2024 글쓰기 원시 자료 말뭉치` | 대학생 1,000자 내외 논증문 3,009건. MASH Essay와 가장 유사합니다. |
+| 뉴스·사설 | `신문 말뭉치 2025` | 기사 974,034건 중 사설·경제·정치 등을 선별합니다. MASH Reuters에 대응합니다. |
+| 논문 초록 | [KCI 논문정보 API](https://www.data.go.kr/data/3049042/openapi.do) 또는 [AI Hub 논문자료 요약](https://www.aihub.or.kr/aihubdata/data/view.do?aihubDataSe=data&currMenu=115&dataSetSn=90&topMenu=100) | 국문 초록만 추출합니다. 모두의 말뭉치의 과학 도서는 논문 초록의 정확한 대체재가 아닙니다. |
+| 시 | `비출판물 말뭉치` 또는 AI Hub 문학작품 데이터 | 300자 이하 탐지 신뢰도와 의미 보존 문제가 있으므로 확장 실험으로 두는 편이 안전합니다. |
+
+**Q2.** 카피킬러로 그 많은 글을 다 검사 가능?
+
+**Q3.** 데이터셋을 한국어로 바꿀 때 고려해야 할 요소가 있을까? 문법적인 요소 등.

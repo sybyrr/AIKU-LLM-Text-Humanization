@@ -1,0 +1,29 @@
+{
+  "dataset_version": "v0",
+  "release_mode": "human_only",
+  "human_corpus": {
+    "path": "/Users/kim-yongjae/Documents/AIKU_Project/korean-dataset/data/processed/kci_abstracts_sampled_ko_cap100.jsonl",
+    "total_records": 1497,
+    "distinct_research_field": 67,
+    "distinct_journal": 167,
+    "publication_year_min": 1996,
+    "publication_year_max": 2020,
+    "mean_human_text_length": 642.62,
+    "median_human_text_length": 607.0
+  },
+  "pairs": null,
+  "sanity_checks": null,
+  "pipeline": {
+    "raw_records": 5000,
+    "clean_ko_records": 2194,
+    "journal_cap": 100,
+    "sample_seed": 42
+  },
+  "status": {
+    "human_corpus": "complete",
+    "pair_generation_pipeline": "implemented",
+    "exaone_prompt_v3_pilot": "in_review",
+    "full_pair_generation": false,
+    "full_pair_target": 1497
+  }
+}
