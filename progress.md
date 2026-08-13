@@ -1,7 +1,7 @@
 # progress.md — 진행 현황과 다음 할 일
 
 > 갱신: **2026-08-11** (폴더 인수 + 정리 + MASH v0 인수). 이 파일이 프로젝트 **상태의 단일 기준**이다.
-> 연구 내용·의사결정 근거는 [notes/](notes/README.md), 규칙·폴더 구조는 [CLAUDE.md](CLAUDE.md) — 여기에 중복 기재하지 않는다.
+> 연구 내용·의사결정 근거는 [notes/](notes/README.md), 폴더 구조·재현 절차는 [README.md](README.md) — 여기에 중복 기재하지 않는다.
 
 **현재 1차 목표**: 두 트랙(Russell·MASH)의 인간↔AI pair를 탐지기(**카피킬러 + Pangram** 예정)에 넣어 AI→AI, 인간→인간으로 판별되는지 확인 — 데이터 완전성 검증. 이후 MASH 방식으로 LLM 튜닝.
 

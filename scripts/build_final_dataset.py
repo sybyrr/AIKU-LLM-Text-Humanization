@@ -53,8 +53,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="mash/pairs_v1.jsonl")
     ap.add_argument("--scores", action="append",
-                    default=["pilot/scores/copykiller_full.jsonl",
-                             "pilot/scores/copykiller_all.jsonl"])
+                    default=["pilot/scores/copykiller_scores.jsonl"],
+                    help="탐지기 점수 jsonl (인간 원문 + 채택 프롬프트의 AI). 여러 번 지정 가능")
     ap.add_argument("--seed-file", default="mash/seed_full.jsonl")
     ap.add_argument("--gen", default="mash/gen_full_p3b_clean.jsonl")
     ap.add_argument("--pool", default="mash/human_pool.jsonl")

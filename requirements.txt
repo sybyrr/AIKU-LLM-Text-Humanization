@@ -1,0 +1,22 @@
+# MASH 트랙 파이프라인 의존 패키지
+#
+# 설치:  python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+#
+# 전 단계가 다 필요한 것은 아니다 — 아래 주석의 "필요 단계"를 보고 골라 설치해도 된다.
+
+# 탐지기 업로드용 docx 쓰기·읽기            [내보내기 · 검증]
+python-docx>=1.1
+
+# 한국어 형태소 분석 (고유명사 보존 지표)    [복사·보존 검사]
+# 없으면 stage0_check_pairs.py 가 경고만 내고 그 지표를 건너뛴다 — 통과율이 부풀려지니 주의
+kiwipiepy>=0.20
+
+# Fast-DetectGPT 채점 · KoBART 학습          [선택: 오픈소스 탐지기 · Stage 2]
+# 카피킬러만 쓴다면 불필요하다. GPU 환경에 맞는 torch 를 별도로 설치할 것
+transformers>=4.40
+torch>=2.0
+
+# ── 파이썬 외부 도구 (패키지 아님) ──────────────────────────
+#   pdftotext   카피킬러 결과확인서 PDF 파싱        (poppler-utils)
+#   curl        API 호출 확인
+#   llama.cpp   GGUF 로컬 서빙 (llama-server)       https://github.com/ggml-org/llama.cpp
