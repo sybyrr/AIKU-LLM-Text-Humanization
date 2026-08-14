@@ -39,6 +39,13 @@ mash/aihub_essay_inventory.md
 # 프롬프트 파일도 대상이다 — 조건 B 는 기사 도입부 2문장, 조건 A 는 제목,
 # 조건 C 는 요약문을 원문 그대로 담고 있다.
 *.jsonl
+# 압축본도 같은 내용이다 (data/ 의 인간 풀·생성물·카피킬러 점수)
+*.jsonl.gz
+# 학습 루프 산출물 — 체크포인트·생성물·지표 (코드와 설정만 커밋한다)
+loop/runs/
+# CPU 스모크 산출물 (tiny 체크포인트·로그, 재실행하면 다시 생김)
+loop/smoke/_run/
+loop/smoke/_smoke_out.log
 # 검수 페이지에 인간 원문·AI 재서술 전문이 박혀 있음
 review/*.html
 review/*.json

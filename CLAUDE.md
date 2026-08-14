@@ -29,6 +29,8 @@
 | `dataset/generations/quant/` | qwen3-8b Q4 vs Q8 비교 ablation (조건 A만, 합본·점수 미포함) |
 | `dataset/scores/` | 탐지기 점수 (현재 Fast-DetectGPT만; **구세트 대상** — progress.md 참조) |
 | `mash/` | **MASH 트랙 본진.** 인간 풀 `human_pool.jsonl`(9,425편) ← 인수분 v0 1,497 + API 수집 v1 8,000. 확정 프롬프트 `prompt_p3b.md`, 생성 결과 `gen_full_p3b.jsonl`. AI Hub 판정·코퍼스 조사 문서 동봉 |
+| `data/` | **학습 루프 입력 (gz).** `splits_v2.jsonl`(train 7,249/dev 946/test 920)·`human_pool`·`gen_full_p3b_clean`(9,115)·`kci_eval_bodies`(모드B 300)·`copykiller_full`·`pairs_v1`·`prompts_ood_test`(920). 스키마: [data/DATASET.md](data/DATASET.md) |
+| `loop/` | **학습 루프 구현 (신규).** ko-BART 재서술기 ↔ KLUE-RoBERTa 탐지기 반복 공진화. `configs/`·`loop_lib/`·`scripts/`(s0/s1/s2 + r_* 라운드) + `runs/`(gitignore). 설계: [notes/31](notes/31-학습-루프-설계.md), 운영: [loop/README.md](loop/README.md) |
 | `pilot/` | Stage 0 파일럿 산출물 — `data/`(시드·프롬프트) `gen/`(생성) `qa/`(복사·보존 검사) `scores/`(카피킬러 점수 + `copykiller/` 결과확인서 PDF 원본) `export/`(탐지기 업로드용 docx·zip) |
 | `corpus/raw/` | NIKL 공식 배포 zip 2개 (gitignore, 1.8GB) |
 | `corpus/mirror/` | HF 미러 parquet 자리 — **이 사본엔 없음** (안내: `corpus/mirror/README.md`) |

@@ -1,0 +1,7 @@
+# 레인 1 — 자기앵커 DPO ablation. 상호 과적합의 "원인" 규명용.
+# y_w = 후보 중 D_t 점수가 가장 낮은 자기 생성물 (인간 앵커 없음).
+arm:
+  name: self_anchor
+  anchor: self
+  detector_reinit: true
+  replay: full

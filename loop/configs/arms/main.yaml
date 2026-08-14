@@ -1,0 +1,7 @@
+# 레인 0 — 주 arm. base.yaml 기본값 그대로 (인간앵커 · 재초기화 · full replay).
+# Round 1 결과가 곧 MASH-ko 재현 baseline 이 된다 (notes/31 § arm 배치).
+arm:
+  name: main
+  anchor: human
+  detector_reinit: true
+  replay: full

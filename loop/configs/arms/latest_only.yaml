@@ -1,0 +1,10 @@
+# 레인 3 — latest-only replay ablation. 원본 AI 를 잊으면 무너지는가.
+# 탐지기 재학습 데이터에서 원본 AI 와 이전 라운드 재서술문을 빼고
+# 최신 라운드 재서술문 + 고정 인간만 쓴다.
+# (replay 에 재서술문만 넣으면 "AI 탐지기"가 "ko-BART 출력 탐지기"로 퇴화한다는
+#  notes/31 의 경고를 검증하는 arm)
+arm:
+  name: latest_only
+  anchor: human
+  detector_reinit: true
+  replay: latest_only
