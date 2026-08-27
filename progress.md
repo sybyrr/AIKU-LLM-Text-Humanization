@@ -1,9 +1,41 @@
 # progress.md — 진행 현황과 다음 할 일
 
-> 갱신: **2026-08-11** (폴더 인수 + 정리 + MASH v0 인수). 이 파일이 프로젝트 **상태의 단일 기준**이다.
-> 연구 내용·의사결정 근거는 [notes/](notes/README.md), 폴더 구조·재현 절차는 [README.md](README.md) — 여기에 중복 기재하지 않는다.
+> 갱신: **2026-08-26**. 이 파일이 프로젝트 **상태의 단일 기준**이다.
+> 연구 내용·근거는 [notes/](notes/README.md), 폴더 구조·재현은 [README.md](README.md).
 
-**현재 1차 목표**: 두 트랙(Russell·MASH)의 인간↔AI pair를 탐지기(**카피킬러 + Pangram** 예정)에 넣어 AI→AI, 인간→인간으로 판별되는지 확인 — 데이터 완전성 검증. 이후 MASH 방식으로 LLM 튜닝.
+## 현재 상태 (2026-08-26) — Stage 1–3 파이프라인 가동
+
+프로젝트가 "pair 구축 + 탐지기 검증"에서 **humanizer 학습·평가**로 넘어왔다. Stage 1(추출→P3b 재서술→
+D 동결 게이트) → 2(StyleBART SFT) → 3(DPOP) 를 **도메인 무관 정본**으로 고정했다.
+
+| 트랙 | 상태 |
+| --- | --- |
+| **신문(플래그십)** | **Stage 1–3 완료.** clean20k **pair 20,343**(train 16,266 / dev 2,033 / test 2,044). x_ai P(AI) 0.999 → SFT 0.23 → **DPOP 0.16**(SCRN 0.10), 붕괴율 0%. 게이트 통과율 85%. |
+| 청원·위키 | 파일럿(pair 1,425 / 1,197, 인간 각 8,000). ⚠️ 구 프롬프트(`rewrite_ko`)로 생성됨 → P3b 로 재생성 필요. |
+| 초록(KCI) | pair 5,553, 탐지기 검증 완료(카피킬러 F1 0.959 / 오탐 8.8%). |
+| 에세이(논증문) | AI Hub `dataSetSn=545`(2021 구축, 50,413편, KatFish 인간 출처) 신청 예정. |
+
+**확정 정본** — 상세: [notes/51](notes/51-Stage1-3-파이프라인-정본.md) · [notes/44](notes/44-Stage2-EOS-Stage3-DPO-DPOP.md) · [notes/60](notes/60-실험설계.md):
+- **프롬프트 = P3b 하나**(도메인 무관, `build_domain_prompts.py`). `rewrite_ko`(문장 순서 유지 = 복사 유발 P2 회귀본) 폐기.
+- **SFT = concat fusion + EOS**(`stage2_sft.py` 기본). **DPO = DPOP λ5**(`--dpop --dpop-lambda 5.0 --length-norm --beta 2.0`;
+  ⚠️ `stage3_dpo.py` 기본값은 vanilla DPO 라 붕괴 → 플래그 명시 필수). 계보: `news_sft_eos20k` → `news_dpo_eos_dpop_l5`.
+- **D = 도메인별 klue-roberta**, detector-split 학습·동결, **학습 문서는 게이트 풀에서 제외**(누수 0, `audit_overlap.py` 검증).
+  D2(4,500·3생성기)로 교체 중. **SCRN = 도메인별 독립 탐지기**(D2 split 학습), 미지 탐지기 전이는 Binoculars/FastDetect(zero-shot).
+- **평가 = clean20k test held-out** 전편 × 전탐지기 + 유사도 + t-SNE. 구 `transfer_*`(누수)·`news_dpair_final/v2`(폐기) 인용 금지.
+
+**다음**: 청원·위키 P3b 재생성 + D2 재게이트 / petition·wiki D2·SCRN 구축 / 에세이(545) 신청·추출기 /
+Stage 4(추론시 정제) / 평가 스크립트 통합. (clean20k 조립 코드화는 `build_clean_dataset.py` 로 완료.)
+
+**코드리뷰(2026-08-26) 반영·잔여**: HIGH/주요 MED 반영 — DPO grad-accum flush(작은 도메인 미학습 방지)·
+β↔length-norm 가드·오케스트레이터 스키마 통일(게이트 도메인무관 로딩)·generate 스트리밍 crash-safe·
+frozen-only split assert·탐지기 경로 단일화(D→D2)·실패 시 중단 가드. **잔여(경미, 미반영)**: hard-neg 채굴
+dedup/seed(`stage3_build_dpo`)·stage2 resume LR 재검증·generate --resume 오류레코드 중복·`norm()` 하이픈 엣지.
+
+---
+
+> 아래는 **2026-08-11 스냅샷(초록·러셀 트랙 구축 시점)**이며 이력이다. 위 "현재 상태"가 우선한다.
+
+**현재 1차 목표(08-11 시점)**: 두 트랙(Russell·MASH)의 인간↔AI pair를 탐지기(**카피킬러 + Pangram** 예정)에 넣어 AI→AI, 인간→인간으로 판별되는지 확인 — 데이터 완전성 검증. 이후 MASH 방식으로 LLM 튜닝.
 
 ## 한눈에: 파이프라인 현황 (Russell 트랙)
 
