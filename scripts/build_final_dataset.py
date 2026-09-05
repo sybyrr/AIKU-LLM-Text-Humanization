@@ -19,7 +19,30 @@ import argparse
 import collections
 import json
 import random
+import re
+from difflib import SequenceMatcher
 from pathlib import Path
+
+NGRAM = 12
+
+
+def _ngrams(s, n=NGRAM):
+    s = re.sub(r"\s+", "", s)
+    return {s[i : i + n] for i in range(max(0, len(s) - n + 1))}
+
+
+def overlap_pct(human, ai):
+    """인간 원문의 12자 조각 중 AI 글에 그대로 남은 비율(%)."""
+    h = _ngrams(human)
+    return len(h & _ngrams(ai)) / len(h) * 100 if h else 0.0
+
+
+def lcs_len(a, b):
+    a, b = re.sub(r"\s+", "", a), re.sub(r"\s+", "", b)
+    if not a or not b:
+        return 0
+    return SequenceMatcher(None, a, b, autojunk=False).find_longest_match(
+        0, len(a), 0, len(b)).size
 
 
 def load_jsonl(p):
@@ -30,8 +53,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="mash/pairs_v1.jsonl")
     ap.add_argument("--scores", action="append",
-                    default=["pilot/scores/copykiller_full.jsonl",
-                             "pilot/scores/copykiller_all.jsonl"])
+                    default=["pilot/scores/copykiller_scores.jsonl"],
+                    help="탐지기 점수 jsonl (인간 원문 + 채택 프롬프트의 AI). 여러 번 지정 가능")
     ap.add_argument("--seed-file", default="mash/seed_full.jsonl")
     ap.add_argument("--gen", default="mash/gen_full_p3b_clean.jsonl")
     ap.add_argument("--pool", default="mash/human_pool.jsonl")
@@ -84,6 +107,13 @@ def main():
             "detector": "copykiller",
             "ck_human_pct": hum_score[pid],
             "ck_ai_pct": ai_score[pid],
+            # 원문 겹침 — 게이트가 아니라 **기록용 지표**다.
+            # 논문 Stage 1 에는 복사율 필터가 없고, 실제로 flip 게이트가 그 역할을 대신한다
+            # (겹침 0~10% 구간 AI판정률 80.4% → 50%+ 구간 23.8%, r = −0.990, n=9,115).
+            # 겹침이 높은데도 살아남은 쌍은 "거의 안 바꿨는데 탐지기가 잡아낸" 사례라
+            # 오히려 판정 근거가 응축돼 있다. 걸러내지 말고 실험 축으로 쓸 것.
+            "ngram_overlap_pct": round(overlap_pct(h["human_text"], g["text"]), 2),
+            "lcs_chars": lcs_len(h["human_text"], g["text"]),
         })
         stats["유효쌍"] += 1
 
@@ -113,6 +143,8 @@ def main():
     print(f"  길이 중앙값: 인간 {hl[len(hl)//2]}자 · AI {al[len(al)//2]}자")
     fields = collections.Counter(r["research_field"] for r in rows)
     print(f"  분야 {len(fields)}종 · 최다 {fields.most_common(1)[0][0]} {fields.most_common(1)[0][1]:,}쌍")
+    ovs = sorted(r["ngram_overlap_pct"] for r in rows)
+    print(f"  12자 겹침: 중앙값 {ovs[len(ovs)//2]:.1f}% · 90%p {ovs[int(len(ovs)*.9)]:.1f}% · 최대 {ovs[-1]:.1f}%")
 
 
 if __name__ == "__main__":

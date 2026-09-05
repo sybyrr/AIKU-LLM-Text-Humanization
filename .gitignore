@@ -4,6 +4,15 @@
 #
 # 주의: gitignore 는 줄 끝 주석을 지원하지 않는다. 설명은 반드시 별도 줄에 쓸 것.
 
+# ── 에이전트 지시 파일 ───────────────────────────────────────
+# 다른 사람이 clone 하면 그 사람의 코딩 에이전트에 자동 로딩돼 우리 규칙이 강제된다.
+# 사람이 읽어야 할 내용(폴더 지도·재현 절차)은 README.md 로 옮겼다.
+CLAUDE.md
+.claude/
+AGENTS.md
+.cursorrules
+.github/copilot-instructions.md
+
 # ── 비밀 · 개인정보 (절대 커밋 금지) ─────────────────────────
 # .kli_api_key = 국립국어원 API 키, .API_KEY = 공공데이터포털 KCI 인증키
 .kli_api_key
@@ -14,6 +23,8 @@ archive/claude-home-backup/
 # ── 환경 · 대용량 ────────────────────────────────────────────
 .venv/
 __pycache__/
+# 허깅페이스 모델 캐시 (KoBART 토크나이저 등)
+.hf_cache/
 *.pyc
 .DS_Store
 # llama.cpp 빌드 바이너리 (환경마다 재빌드)
@@ -68,8 +79,10 @@ logs/gen_full_p3b.log
 logs/server_8081_Qwen3-8B-Q4_K_M.log
 
 # ── 탐지기 업로드용 문서 묶음 ────────────────────────────────
-# 인간 원문·AI 재서술 전문이 그대로 들어 있다. 18,390개 686MB.
+# 인간 원문·AI 재서술 전문이 그대로 들어 있다. manifest.csv 는 라벨 정답표다.
 mash/copykiller_batches/
+mash/copykiller_v2/
+mash/copykiller_v2_zip/
 # 어떤 경로에 있든 docx 는 곧 원문 사본이다
 *.docx
 
@@ -88,3 +101,9 @@ logs/
 *.png
 *.jpg
 *.jpeg
+
+# ── 압축 데이터 ──────────────────────────────────────────────
+*.gz
+*.tgz
+# Drive 반출용 준비 폴더 — 문서는 mash/·루트에 원본이 있고 여기 것은 사본이다
+mash/drive_upload/

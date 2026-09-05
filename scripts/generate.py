@@ -2,7 +2,7 @@
 """llama-server 에 프롬프트를 병렬로 던져 생성 결과를 JSONL 로 받는다.
 
 사용:
-  python generate.py --in prompts.jsonl --out gen.jsonl --model exaone-33b [--slots 4]
+  python generate.py --in prompts.jsonl --out gen.jsonl --model exaone-33b [--slots 4] [--resume]
 
 instruct 모델이므로 /v1/chat/completions 를 쓴다. llama-server 가 GGUF 에 들어 있는
 chat template 을 적용해준다. raw /completion 을 쓰면 템플릿이 안 붙어서 지시 이행이
@@ -11,12 +11,14 @@ chat template 을 적용해준다. raw /completion 을 쓰면 템플릿이 안 �
 Qwen3 계열은 하이브리드 사고 모드가 기본 on 이라 <think> 블록이 섞여 나온다.
 chat_template_kwargs.enable_thinking=false 로 끄고, 그래도 새어나오면 사후 제거한다.
 """
-import argparse, json, os, re, threading, time, urllib.request
+import argparse, json, os, re, time, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 THINK = re.compile(r"<think>.*?</think>\s*", re.S)
 
-def chat(url, prompt, n_predict, seed, temp, no_think, system=""):
+def chat(url, prompt, n_predict, seed, temp, no_think, system=None):
+    # 통일 프롬프트(P3b)는 system/user 를 나눠 쓴다(build_domain_prompts.py 가 system 필드를 넣는다).
+    # 러셀식 조건 A/C/E 는 system 이 없으므로 user 하나만 보낸다.
     messages = ([{"role": "system", "content": system}] if system else []) \
         + [{"role": "user", "content": prompt}]
     payload = {
@@ -37,9 +39,15 @@ def chat(url, prompt, n_predict, seed, temp, no_think, system=""):
 def clean(text):
     """사고 블록과 흔한 군더더기 제거"""
     text = THINK.sub("", text).strip()
-    # 모델이 지시를 어기고 제목을 다시 쓰는 경우 첫 줄 제거
+    # 첫 줄이 라벨뿐이면 제거한다. 러셀식은 "제목:" 이 새어나왔고,
+    # 재서술 프롬프트는 "다듬은 본문:" 류의 머리말이 붙는 경우가 있다.
     lines = text.split("\n")
-    if lines and re.match(r"^\s*(제목|Title)\s*[:：]", lines[0]):
+    if lines and re.match(
+            r"^\s*(제목|Title|(다듬은|수정된|편집된|정리한)\s*(본문|글|텍스트)|Polished(\s+text)?)"
+            r"\s*[:：]\s*$", lines[0]):
+        text = "\n".join(lines[1:]).strip()
+    elif lines and re.match(
+            r"^\s*(제목|Title)\s*[:：]", lines[0]):
         text = "\n".join(lines[1:]).strip()
     return text
 
@@ -54,21 +62,22 @@ def main():
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--no-think", action="store_true", help="Qwen3 등 사고 모드 끄기")
     ap.add_argument("--retries", type=int, default=3, help="간헐적 파서 오류 재시도 횟수")
+    ap.add_argument("--resume", action="store_true",
+                    help="기존 --out 의 성공분(text 있는 레코드)을 건너뛰고 이어서 append")
     # max_tokens = target_char * token_ratio.
     # 실측 2.87자/토큰(EXAONE)이므로 필요 토큰은 target_char/2.87 ≈ 0.35배.
     # 0.8 로 두면 2배 이상 여유가 있으면서, 슬롯 컨텍스트(-c/-np = 4096)를 넘지 않는다.
     # 1.6 으로 두면 target_char 2400 인 건이 3840토큰을 요청해 슬롯 한도를 넘겨
     # HTTP 500 이 난다(Qwen3 토크나이저가 한국어를 더 잘게 쪼개 특히 취약).
     ap.add_argument("--token-ratio", type=float, default=0.8)
-    ap.add_argument("--resume", action="store_true", help="기존 --out 의 성공분을 건너뛰고 이어서")
     args = ap.parse_args()
 
     rows = [json.loads(l) for l in open(args.inp) if l.strip()]
-
     # resume: 이미 성공한 (doc_id, cond) 는 건너뛴다. 오류 레코드는 재시도 대상으로 남긴다.
-    # (CPU 실행이나 장시간 배치에서 중간에 죽으면 전량 손실이던 것을 방지)
-    done = set()
+    # (장시간 배치가 중간에 죽으면 전량 손실이던 것을 방지)
+    mode = "w"
     if args.resume and os.path.exists(args.out):
+        done = set()
         with open(args.out) as f:
             for line in f:
                 if line.strip():
@@ -76,12 +85,9 @@ def main():
                     if o.get("text"):
                         done.add((o["doc_id"], o["cond"]))
         rows = [r for r in rows if (r["doc_id"], r["cond"]) not in done]
+        mode = "a"
         print(f"resume: 완료 {len(done)}건 건너뜀", flush=True)
-
     print(f"{args.model}: {len(rows)}건, 슬롯 {args.slots}", flush=True)
-    if not rows:
-        print("남은 작업 없음")
-        return
 
     def work(item):
         i, row = item
@@ -94,7 +100,7 @@ def main():
             try:
                 r = chat(args.url, row["prompt"], int(row["target_char"] * args.token_ratio),
                          args.seed + i + 1000 * attempt, args.temp, args.no_think,
-                         row.get("system", ""))
+                         row.get("system"))
                 break
             except Exception as e:
                 last = e
@@ -102,10 +108,14 @@ def main():
         else:
             return {"doc_id": row["doc_id"], "cond": row["cond"], "model": args.model,
                     "error": f"{args.retries + 1}회 시도 실패: {str(last)[:150]}"}
-        msg = r["choices"][0]["message"]
+        try:                                       # 200 이지만 choices 가 없는 오류 페이로드 방어
+            msg = r["choices"][0]["message"]
+        except (KeyError, IndexError, TypeError):
+            return {"doc_id": row["doc_id"], "cond": row["cond"], "model": args.model,
+                    "error": f"응답 형식 오류: {str(r)[:150]}"}
         raw = msg.get("content") or ""
         # 추론 모델이 사고 모드로 돌면 content 가 비고 reasoning_content 로 빠진다.
-        # 조용히 빈 문자열이 저장되면 90편이 전부 공백이 되므로 에러로 올린다.
+        # 조용히 빈 문자열이 저장되면 전량 공백이 되므로 에러로 올린다.
         reason_len = len(msg.get("reasoning_content") or "")
         text = clean(raw)
         if not text:
@@ -122,29 +132,26 @@ def main():
             "elapsed": round(time.time() - t0, 1), "text": text,
         }
 
-    # 결과가 나오는 즉시 파일에 쓴다.
-    # 전량 완료 후 한 번에 쓰면, 만 건 규모(수 시간)에서 중간에 죽었을 때 전부 날아가고
-    # --resume 도 무용지물이 된다(건너뛸 완료분 자체가 파일에 없으므로).
+    # 완료되는 즉시 디스크에 스트리밍 기록(락) → 배치가 중간에 죽어도 partial 이 남아 --resume 가능.
+    import threading
     t0 = time.time()
-    out = []
     lock = threading.Lock()
-    with open(args.out, "a" if args.resume else "w") as f:
+    out = []
+    with open(args.out, mode) as f:
+        def run_one(item):
+            o = work(item)
+            with lock:
+                f.write(json.dumps(o, ensure_ascii=False) + "\n"); f.flush()
+                out.append(o)
+            return o
         with ThreadPoolExecutor(max_workers=args.slots) as ex:
-            for o in ex.map(work, enumerate(rows)):
-                with lock:
-                    out.append(o)
-                    f.write(json.dumps(o, ensure_ascii=False) + "\n")
-                    if len(out) % 20 == 0:
-                        f.flush()
-                        el = time.time() - t0
-                        print(f"  진행 {len(out)}/{len(rows)} · {el/60:.1f}분 "
-                              f"· 남은 예상 {(len(rows)-len(out))*el/len(out)/60:.0f}분", flush=True)
+            list(ex.map(run_one, enumerate(rows)))
 
     ok = [o for o in out if "error" not in o]
     err = [o for o in out if "error" in o]
     el = time.time() - t0
     tok = sum(o["tokens"] or 0 for o in ok)
-    print(f"완료 {len(ok)} 실패 {len(err)} | {tok}토큰 / {el:.0f}초 = {tok/el:.1f} t/s", flush=True)
+    print(f"완료 {len(ok)} 실패 {len(err)} | {tok}토큰 / {el:.0f}초 = {tok/max(el,1):.1f} t/s", flush=True)
     if err:
         print("  실패 예:", err[0]["error"][:120], flush=True)
     if ok:

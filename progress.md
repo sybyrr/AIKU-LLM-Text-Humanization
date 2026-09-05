@@ -1,9 +1,41 @@
 # progress.md — 진행 현황과 다음 할 일
 
-> 갱신: **2026-08-14** (학습 루프 `loop/` 구현 + CPU 스모크 검증). 이 파일이 프로젝트 **상태의 단일 기준**이다.
-> 연구 내용·의사결정 근거는 [notes/](notes/README.md), 규칙·폴더 구조는 [CLAUDE.md](CLAUDE.md) — 여기에 중복 기재하지 않는다.
+> 갱신: **2026-08-26**. 이 파일이 프로젝트 **상태의 단일 기준**이다.
+> 연구 내용·근거는 [notes/](notes/README.md), 폴더 구조·재현은 [README.md](README.md).
 
-**현재 1차 목표**: 두 트랙(Russell·MASH)의 인간↔AI pair를 탐지기(**카피킬러 + Pangram** 예정)에 넣어 AI→AI, 인간→인간으로 판별되는지 확인 — 데이터 완전성 검증. 이후 MASH 방식으로 LLM 튜닝.
+## 현재 상태 (2026-08-26) — Stage 1–3 파이프라인 가동
+
+프로젝트가 "pair 구축 + 탐지기 검증"에서 **humanizer 학습·평가**로 넘어왔다. Stage 1(추출→P3b 재서술→
+D 동결 게이트) → 2(StyleBART SFT) → 3(DPOP) 를 **도메인 무관 정본**으로 고정했다.
+
+| 트랙 | 상태 |
+| --- | --- |
+| **신문(플래그십)** | **Stage 1–3 완료.** clean20k **pair 20,343**(train 16,266 / dev 2,033 / test 2,044). x_ai P(AI) 0.999 → SFT 0.23 → **DPOP 0.16**(SCRN 0.10), 붕괴율 0%. 게이트 통과율 85%. |
+| 청원·위키 | 파일럿(pair 1,425 / 1,197, 인간 각 8,000). ⚠️ 구 프롬프트(`rewrite_ko`)로 생성됨 → P3b 로 재생성 필요. |
+| 초록(KCI) | pair 5,553, 탐지기 검증 완료(카피킬러 F1 0.959 / 오탐 8.8%). |
+| 에세이(논증문) | AI Hub `dataSetSn=545`(2021 구축, 50,413편, KatFish 인간 출처) 신청 예정. |
+
+**확정 정본** — 상세: [notes/51](notes/51-Stage1-3-파이프라인-정본.md) · [notes/44](notes/44-Stage2-EOS-Stage3-DPO-DPOP.md) · [notes/60](notes/60-실험설계.md):
+- **프롬프트 = P3b 하나**(도메인 무관, `build_domain_prompts.py`). `rewrite_ko`(문장 순서 유지 = 복사 유발 P2 회귀본) 폐기.
+- **SFT = concat fusion + EOS**(`stage2_sft.py` 기본). **DPO = DPOP λ5**(`--dpop --dpop-lambda 5.0 --length-norm --beta 2.0`;
+  ⚠️ `stage3_dpo.py` 기본값은 vanilla DPO 라 붕괴 → 플래그 명시 필수). 계보: `news_sft_eos20k` → `news_dpo_eos_dpop_l5`.
+- **D = 도메인별 klue-roberta**, detector-split 학습·동결, **학습 문서는 게이트 풀에서 제외**(누수 0, `audit_overlap.py` 검증).
+  D2(4,500·3생성기)로 교체 중. **SCRN = 도메인별 독립 탐지기**(D2 split 학습), 미지 탐지기 전이는 Binoculars/FastDetect(zero-shot).
+- **평가 = clean20k test held-out** 전편 × 전탐지기 + 유사도 + t-SNE. 구 `transfer_*`(누수)·`news_dpair_final/v2`(폐기) 인용 금지.
+
+**다음**: 청원·위키 P3b 재생성 + D2 재게이트 / petition·wiki D2·SCRN 구축 / 에세이(545) 신청·추출기 /
+Stage 4(추론시 정제) / 평가 스크립트 통합. (clean20k 조립 코드화는 `build_clean_dataset.py` 로 완료.)
+
+**코드리뷰(2026-08-26) 반영·잔여**: HIGH/주요 MED 반영 — DPO grad-accum flush(작은 도메인 미학습 방지)·
+β↔length-norm 가드·오케스트레이터 스키마 통일(게이트 도메인무관 로딩)·generate 스트리밍 crash-safe·
+frozen-only split assert·탐지기 경로 단일화(D→D2)·실패 시 중단 가드. **잔여(경미, 미반영)**: hard-neg 채굴
+dedup/seed(`stage3_build_dpo`)·stage2 resume LR 재검증·generate --resume 오류레코드 중복·`norm()` 하이픈 엣지.
+
+---
+
+> 아래는 **2026-08-11 스냅샷(초록·러셀 트랙 구축 시점)**이며 이력이다. 위 "현재 상태"가 우선한다.
+
+**현재 1차 목표(08-11 시점)**: 두 트랙(Russell·MASH)의 인간↔AI pair를 탐지기(**카피킬러 + Pangram** 예정)에 넣어 AI→AI, 인간→인간으로 판별되는지 확인 — 데이터 완전성 검증. 이후 MASH 방식으로 LLM 튜닝.
 
 ## 한눈에: 파이프라인 현황 (Russell 트랙)
 
@@ -134,22 +166,6 @@ notes/41·42는 7모델 시점까지만 기록하고 있다. 그 이후:
 
 인증키는 `/workspace/.data_go_kr_key` 에 보관(gitignore 대상, `.kli_api_key` 와 동일 취급 — 열람·출력·커밋 금지).
 
-**~~보류~~ → 채택: 학습 가능한 탐지기 = 루프의 핵심 부품** (2026-08-13 확정 — 설계 정본은 [notes/31-학습-루프-설계](notes/31-학습-루프-설계.md))
-KLUE-RoBERTa 탐지기를 "두 번째 탐지기"가 아니라 **Generator↔Detector 반복 공진화 루프의 학습 신호원**으로 쓴다.
-카피킬러는 API가 없어 MASH의 DPO(Stage 3)·Inference-Time Refinement(Stage 4)를 아예 못 돌리므로, 대리 탐지기는 선택이 아니라 전제 조건이다.
-주축은 **카피킬러 전이**(대리 탐지기 = shadow model, 헤드라인 수치는 외부에서). 아래 착수 조건 중:
-- **ⓐ 순환논리는 소멸.** 미필터 전체 9,115쌍을 **provenance 라벨**(누가 썼는지 = 사실)로 학습하면 카피킬러 판정을 모방하지 않는다. `pairs_v1`(5,553)은 카피킬러가 고른 부분집합이라 **학습셋으로 쓰지 않는다** — 실측상 카피킬러가 놓친 2,748건도 선형 모델이 acc 0.944로 잡으므로, 그 필터는 더 어려운 데이터를 버린 것이다.
-- **ⓑ 재서술 편향은 유효하게 남음.** [notes/31 § 알려진 한계](notes/31-학습-루프-설계.md) 참조 — `build_eval_prompts.py` 모드 B(제목만 → 초록)와 `kci_eval_bodies` 300편으로 최소한 평가에는 반드시 포함할 것.
-- 공통 split 확정: `data/splits_v2.jsonl` (train 7,249 / dev 946 / test 920, `pairs_v1` 기존 배정 승계).
-
-**구현 완료 → 서버 착수 대기 (2026-08-14).** 루프 전체를 `loop/` 에 구현했다 (운영 정본 [loop/README.md](loop/README.md), 설계 [notes/31](notes/31-학습-루프-설계.md)).
-- **구성**: `loop_lib/`(io·config·data·detector·paraphraser·sft·dpo·replay·metrics) + `loop/scripts/`(s0→s1→s2 준비단계, r_* 라운드 5단계, `run_*.sh` 러너, P4·외부 프로브). 설정은 `configs/base.yaml`(notes/31 고정값) + arm 4종.
-- **검증**: 로컬 CPU 스모크(`loop/smoke/run_smoke.py`)로 tiny 랜덤 모델을 써서 s0→s1→s2→라운드1·2 전 단계 관통 확인(11/11). 실데이터 소량 + 실토크나이저. **수렴이 아니라 코드 정합성 검증** — 실제 학습은 서버 GPU 몫.
-- **서버 착수 순서**: `loop/check_env.py`(Pascal fp32 프리플라이트) → `run_stage0_2.sh`(D₀+앵커+D_pair+SFT) → `samples_dev.md` 육안 검수(ko-BART GO/NO-GO) → `run_arm.sh <arm> 1 5`(카드당 arm 하나). requirements 는 서버에서 `check_env` 통과하는 torch 가 확정한다(sm_61 커널 이슈).
-- **미착수(서버 필요)**: 실제 D₀ 학습·수렴 확인, ko-BART SFT 품질 판정, 라운드 실행, 카피킬러 배치 채점, OOD/모드B/P4 프로브(생성기 llama.cpp 필요).
-
-<details><summary>원래 보류 판단 (2026-08-12, 기록 보존)</summary>
-
 **보류 중인 아이디어 — RoBERTa 두 번째 탐지기** (2026-08-12 제안, **실행 안 함**)
 논문은 벤치마크를 3:1:1:1 로 나눠 RoBERTa 를 도메인별 이진 분류기로 파인튜닝했다(`MASH.md:522·526`).
 우리는 카피킬러를 그대로 쓰므로 필수가 아니지만, 붙이면 ① 논문과 직접 비교 ② "탐지기 하나에만 맞췄다"는 한계 해소
@@ -159,7 +175,6 @@ KLUE-RoBERTa 탐지기를 "두 번째 탐지기"가 아니라 **Generator↔Dete
 - 필요량은 작다(논문 추정 도메인당 기계 300 + 인간 300). 인간 1,000~2,000편 = API 15분,
   AI 1,000~2,000편 = **본문/제목 → 초록 생성** 2~4시간. 평가용 본문 300편이 이미 그 성격이라 그대로 쓰인다.
 - **카피킬러 검증이 끝난 뒤 판단한다.** 지금 착수하면 본 파이프라인과 GPU·시간이 겹친다.
-</details>
 
 **그다음 (내가 진행 가능 — 승인 후 착수)**
 5. **본 구축**: KCI 1,497편 × arm 3개 = 4,491건 생성 (qwen3-8b, ~7시간) → 보존 QA → 카피킬러 배치 13회분 내보내기
