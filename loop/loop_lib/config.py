@@ -2,8 +2,6 @@
 import copy
 from pathlib import Path
 
-import yaml
-
 # loop/loop_lib/config.py → 저장소 루트는 두 단계 위
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LOOP_DIR = Path(__file__).resolve().parents[1]
@@ -50,6 +48,8 @@ def _merge(base: dict, over: dict) -> dict:
 
 
 def load_config(base_path=None, *overlay_paths) -> NS:
+    import yaml
+
     base_path = Path(base_path) if base_path else LOOP_DIR / "configs" / "base.yaml"
     d = yaml.safe_load(Path(base_path).read_text(encoding="utf-8"))
     for p in overlay_paths:

@@ -10,13 +10,10 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import torch
 
 from loop_lib import config as C
 from loop_lib import data as D
-from loop_lib import detector as DET
 from loop_lib import io_utils as io
-from loop_lib import paraphraser as P
 
 
 def main():
@@ -29,6 +26,10 @@ def main():
     ap.add_argument("--epochs", type=int, default=None)
     ap.add_argument("--force", action="store_true")
     a = ap.parse_args()
+
+    import torch
+    from loop_lib import detector as DET
+    from loop_lib import paraphraser as P
 
     cfg = C.load_config(a.config, a.arm_config)
     io.set_seed(cfg.seed)

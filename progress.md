@@ -1,9 +1,9 @@
 # progress.md — 진행 현황과 다음 할 일
 
-> 갱신: **2026-08-26**. 이 파일이 프로젝트 **상태의 단일 기준**이다.
+> 갱신: **2026-09-05**. 이 파일이 프로젝트 **상태의 단일 기준**이다.
 > 연구 내용·근거는 [notes/](notes/README.md), 폴더 구조·재현은 [README.md](README.md).
 
-## 현재 상태 (2026-08-26) — Stage 1–3 파이프라인 가동
+## 현재 상태 (2026-09-05) — Stage 1–3 + 반복 연구 파이프라인
 
 프로젝트가 "pair 구축 + 탐지기 검증"에서 **humanizer 학습·평가**로 넘어왔다. Stage 1(추출→P3b 재서술→
 D 동결 게이트) → 2(StyleBART SFT) → 3(DPOP) 를 **도메인 무관 정본**으로 고정했다.
@@ -14,6 +14,12 @@ D 동결 게이트) → 2(StyleBART SFT) → 3(DPOP) 를 **도메인 무관 정�
 | 청원·위키 | 파일럿(pair 1,425 / 1,197, 인간 각 8,000). ⚠️ 구 프롬프트(`rewrite_ko`)로 생성됨 → P3b 로 재생성 필요. |
 | 초록(KCI) | pair 5,553, 탐지기 검증 완료(카피킬러 F1 0.959 / 오탐 8.8%). |
 | 에세이(논증문) | AI Hub `dataSetSn=545`(2021 구축, 50,413편, KatFish 인간 출처) 신청 예정. |
+
+**반복 연구 경로(G1→D1→G2)** — 기존 신문 humanizer와 detector를 원본 수정 없이
+`loop/`로 가져오는 코드, D1 적응, G2 DPOP, 동일 test-ID 외부 평가까지 통합했다.
+CopyKiller 1,985건에서 G1/G2 ASR은 97.03%/97.83%였으나 차이는 +0.81%p로 작고
+지표 선택에 민감하다. 새 D2·G3, SimCSE/PPL, 자연스러움 평가는 아직 완료되지 않았다.
+실행은 [loop/README](loop/README.md), 결과와 제한은 [loop/RESULTS](loop/RESULTS.md)를 본다.
 
 **확정 정본** — 상세: [notes/51](notes/51-Stage1-3-파이프라인-정본.md) · [notes/44](notes/44-Stage2-EOS-Stage3-DPO-DPOP.md) · [notes/60](notes/60-실험설계.md):
 - **프롬프트 = P3b 하나**(도메인 무관, `build_domain_prompts.py`). `rewrite_ko`(문장 순서 유지 = 복사 유발 P2 회귀본) 폐기.

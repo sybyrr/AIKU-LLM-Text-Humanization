@@ -26,12 +26,95 @@ loop/
 동결 앵커는 `runs/stage0/`(D₀·KoELECTRA)에 있고 라운드 산출물은 `runs/arms/` 아래라
 서로 절대 덮이지 않는다.
 
+## 팀 뉴스 G1 → D1 → G2 빠른 시작
+
+이 경로는 루트 `scripts/`의 신문 Stage 1–3 결과를 가져와 반복 학습 실험으로 잇는다.
+Git에는 코드와 설정만 들어 있으며 아래 세 비공개 산출물은 팀 Drive에서 같은 경로에 둔다.
+
+| 팀 산출물 | 루프 이름 | 역할 |
+| --- | --- | --- |
+| `dataset/news_track/news_dpair_D2.jsonl` | paired data | train/dev/test와 human/AI 쌍 |
+| `models/news_dpo_D2/dpo_bart.pt` | G1 | 반복 학습의 초기 humanizer |
+| `models/news_roberta_D2/` | frozen D0 | G1 기준선 및 동결 평가 앵커 |
+
+활성화한 GPU 환경에서 저장소 루트를 기준으로 실행한다.
+
+```bash
+# GPU에 맞는 torch를 먼저 설치한 프로젝트 환경에서 나머지 의존성을 설치한다.
+pip install -r loop/requirements.txt
+python loop/check_env.py --profile team-news --team-root .
+
+# 팀 원본은 읽기만 하고 loop/runs/team_news 아래에 스냅샷·변환본을 만든다.
+python loop/scripts/import_team_news.py --team-root .
+
+# G1 train 출력으로 D1을 재학습하고 dev-cal/dev-gate를 분리해 붕괴 게이트를 검사한다.
+python loop/scripts/bootstrap_retrain_detector.py --device cuda
+
+# 본학습과 같은 모델 경로를 8개 문서로 먼저 관통한 뒤 전체 G2를 실행한다.
+python -u loop/scripts/run_team_news_g2.py --smoke
+python -u loop/scripts/run_team_news_g2.py
+```
+
+`--smoke` 산출물은 `loop/runs/team_news/g2_preflight/`에 격리되며 본학습 G2 결과가
+아니다. 전체 러너는 D1 게이트, train/test ID 분리, 후보 완전성, 인간 chosen,
+`d_l > tau` hard negative, 유한한 ref log-prob와 DPO 지표를 확인한다. 성공 판정에는
+다음 파일이 모두 필요하다.
+
+```text
+loop/runs/team_news/arms/team_news/round1/g2_status.json   status=completed
+loop/runs/team_news/arms/team_news/round1/dpo/final/style_head.pt
+loop/runs/team_news/arms/team_news/round1/eval/metrics.json
+```
+
+러너는 G2 평가 후 멈춘다. 새 D2를 만들려면 별도 실험으로 preregister하고, dev-cal과
+dev-gate를 분리한 뒤 동일 test ID의 G1/G2를 다시 비교해야 한다. 저장된 출력을 직접
+검수하려면 다음 명령을 사용한다.
+
+```bash
+python loop/scripts/export_team_news_review.py --limit 20
+```
+
+CopyKiller용 G1/G2는 서로 표절 대조되지 않도록 반드시 별도 검사로 올린다. export의
+`manifest.csv`, `export_metadata.json`, `validation.json`은 정답표·검증 파일이므로
+업로드하지 않는다. 전체 재현 명령과 집계 결과는 [RESULTS.md](RESULTS.md)에 있다.
+
+### 코드와 tensor 흐름
+
+| 코드 | 책임 |
+| --- | --- |
+| `scripts/import_team_news.py` | 팀 pair/G1/D0를 원본 수정 없이 스냅샷·형식 변환 |
+| `scripts/bootstrap_retrain_detector.py` | G1 train 출력 생성, D1 학습, threshold·게이트 산출 |
+| `scripts/run_team_news_g2.py` | 후보→preference→DPOP→평가 순서와 불변조건 강제 |
+| `loop_lib/paraphraser.py` | StyleBART forward/generation과 chosen/rejected log-prob |
+| `loop_lib/dpo.py` | length-normalized DPOP loss와 optimizer step |
+| `scripts/export_*`, `validate_*`, `analyze_*` | 블라인드 export, 무결성 검사, paired 통계 |
+
+G의 입력 `input_ids`는 `[B, S]`이고 BART encoder 출력은 `[B, S, d]`다. 선택한
+AI/Human style embedding `[B, d]`를 `[B, S, d]`로 broadcast한 뒤 content와 이어
+`[B, S, 2d]`를 만들고, 공유 linear fusion으로 `[B, S, d]`로 되돌려 decoder에
+전달한다. chosen/rejected label은 `[B, T_w]`, `[B, T_l]`이며 EOS를 loss 대상에
+명시적으로 포함하고 pad만 `-100`으로 가린다.
+
+D1의 학습 버퍼는 human/G0/G1을 각각 50%/25%/25%의 총 가중치로 사용한다. G2의
+preference는 `chosen=human`, `rejected=D1 score > tau인 G1 후보`다. 정본 설정은
+`beta=2`, `lambda=5`, token 평균 log-prob이며 구현한 DPOP margin은 다음과 같다.
+
+```text
+h = (log G2(yw) - log G1(yw)) - (log G2(yl) - log G1(yl))
+    - lambda * max(0, log G1(yw) - log G2(yw))
+loss = -log sigmoid(beta * h)
+```
+
+마지막 hinge 항은 chosen인 인간 정답의 우도가 reference G1보다 낮아지는
+unlearning을 억제한다. 기존 팀 정본의 EOS, concat fusion, length normalization,
+DPOP 설정을 바꾸지 않고 루프 모듈에 대응시켰다.
+
 ## 서버 실행 순서
 
 `notes/31 § 서버에서 코드 한 줄 쓰기 전에` — 먼저 환경부터. 실패하면 requirements 전체가 바뀐다.
 
 ```bash
-/workspace/.venv/bin/python3 loop/check_env.py       # capability (6,1) + 실제 matmul 확인
+python loop/check_env.py                              # capability (6,1) + 실제 matmul 확인
 ```
 
 착수 준비 (D₀ → D_pair → SFT). Pascal 은 fp32 전용이라 카드당 12GB 안에 든다:
@@ -87,8 +170,8 @@ hard negative 가 부족하면 ②가 `needs_more` 를 남기고, `run_round.sh`
 - `frozen_d0`, `frozen_koelectra` — 루프에 안 들어간 동결 앵커. 여기 ASR 이 헤드라인
 - `style.distance_gen` — 인간 문체와의 z-거리 (탐지기와 무관한 축)
 
-카피킬러(주지표)는 `eval/ck_export/batch*/` 를 웹 UI 에 올려 받은 AI작성률로 별도 채점한다
-(배치당 350개, `manifest.csv` 는 업로드 금지 — 정답표).
+카피킬러는 `eval/ck_export/`의 DOCX를 웹 UI에 올려 받은 AI작성률로 별도 채점한다.
+계정별 파일 수·용량 제한에 맞춰 나누되, `manifest.csv`는 업로드하지 않는다.
 
 ## 외부 프로브 (GPU 레인 불필요, 생성만)
 
@@ -114,7 +197,7 @@ python loop/smoke/run_smoke.py
 
 ## 규약
 
-- 파이썬은 서버에서 반드시 `/workspace/.venv/bin/python3`. 러너가 없으면 `python3` 폴백.
+- 서버에서는 프로젝트 Python 환경을 활성화한 뒤 `python`으로 실행한다.
 - 모든 파일 IO 는 UTF-8 명시 (컨테이너 로케일 POSIX). 재현용 seed 는 base.yaml.
 - git 으로는 코드만 왕복. `runs/` 는 gitignore — 체크포인트·생성물·점수는 올리지 않는다.
 - 재실행 안전: 각 단계는 산출물이 있으면 건너뛴다. 다시 하려면 `--force`.

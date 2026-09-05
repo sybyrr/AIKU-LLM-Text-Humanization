@@ -11,11 +11,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import torch
 
 from loop_lib import config as C
 from loop_lib import io_utils as io
-from loop_lib import paraphraser as P
 
 
 def sha256(path):
@@ -27,6 +25,9 @@ def sha256(path):
 
 
 def convert_generator(src, dst, cfg):
+    import torch
+    from loop_lib import paraphraser as P
+
     ck = torch.load(src, map_location="cpu", weights_only=True)
     state = ck["model"]
     model, tok = P.create(cfg.paraphraser.model)

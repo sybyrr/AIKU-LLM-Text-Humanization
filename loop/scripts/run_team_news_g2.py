@@ -8,7 +8,6 @@ The detector threshold and DPO objective are inherited without modification.
 import argparse
 from collections import Counter
 from datetime import datetime, timezone
-import fcntl
 import hashlib
 import json
 import math
@@ -21,7 +20,6 @@ import time
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from loop_lib import config as C
 from loop_lib import io_utils as io
-import yaml
 
 
 def now():
@@ -37,6 +35,10 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--smoke', action='store_true')
     args = ap.parse_args()
+
+    import fcntl
+    import yaml
+
     original = C.load_config(C.LOOP_DIR / 'configs/base.yaml',
                              C.LOOP_DIR / 'configs/arms/team_news.yaml')
     production = C.runs_dir(original)

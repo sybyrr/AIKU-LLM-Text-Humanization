@@ -59,6 +59,30 @@ SFT/DPO 가 x_ai(탐지기가 확실히 AI로 잡던 것)를 인간 영역으로
 새 도메인은 `human_pool.jsonl` 만 준비하면 `run_domain_pipeline.sh <domain> <gpu>` 로 1b→3 이 돈다.
 정본 규격 전문: **[notes/51-Stage1-3-파이프라인-정본](notes/51-Stage1-3-파이프라인-정본.md)**.
 
+### 반복 G→D→G 연구 경로
+
+`scripts/`의 Stage 1–3은 재현 가능한 단일 학습 정본이고, `loop/`는 그 결과를 시작점으로
+생성기와 대리 탐지기를 번갈아 적응시키는 선택형 연구 경로다. 기존 정본이나 체크포인트를
+덮어쓰지 않으며 모든 산출물은 Git에서 제외된 `loop/runs/`에 저장한다.
+
+```text
+팀 humanizer + detector ── import ──> G1 + frozen D0
+                                      │
+                           G1 출력으로 D1 재학습·게이트
+                                      │
+                           D1 hard negative로 G2 DPOP
+                                      │
+                         동일 test ID 평가 + 외부 CopyKiller
+```
+
+팀 저장소의 `news_dpo_D2`는 루프에서 **G1**, `news_roberta_D2`는 **frozen D0**로
+부른다. 여기서 `D2`는 기존 팀 모델의 버전명이지 반복 루프의 두 번째 탐지기를 뜻하지 않는다.
+현재 공개 코드가 실행하는 범위는 `G1 → D1 → G2 평가`까지이며, 새 D2 재학습은 자동으로
+시작하지 않는다.
+
+- 실행·산출물·게이트: **[loop/README.md](loop/README.md)**
+- 동일 test 1,985건 결과와 해석 경계: **[loop/RESULTS.md](loop/RESULTS.md)**
+
 ### 정본 학습 설정 (EOS SFT + DPOP)
 
 | 단계 | 스크립트 | 정본 설정 |

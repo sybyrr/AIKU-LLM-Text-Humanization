@@ -6,12 +6,13 @@
      capability 가 (6,1) 로 나오고 **실제 행렬곱이 값을 뱉어야** 진짜다.
      여기서 실패하면 cu118 계열로 내려야 하고 requirements 전체가 그 결정을 따른다.
   ② 필수 라이브러리 import + 버전
-  ③ 데이터 파일 존재 + 행수 (splits 9,115 / OOD 프롬프트 920)
+  ③ 선택한 profile의 데이터·초기 체크포인트 존재와 행수
   ④ UTF-8 왕복 (컨테이너 로케일이 POSIX 라 한글이 깨질 수 있음)
 
 사용:
-  python loop/check_env.py                                # 활성 Conda 환경
-  python loop/check_env.py --cpu-only                     # 로컬 스모크 전
+  python loop/check_env.py                                # KCI loop, 활성 GPU 환경
+  python loop/check_env.py --profile team-news --team-root .
+  python loop/check_env.py --cpu-only --profile none      # 로컬 코드 스모크 전
 종료코드 0 = 전부 통과.
 """
 import argparse
@@ -52,6 +53,18 @@ def report(name, ok, detail=""):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cpu-only", action="store_true", help="GPU 검사 생략 (로컬)")
+    ap.add_argument(
+        "--profile",
+        choices=("kci", "team-news", "none"),
+        default="kci",
+        help="검사할 비공개 입력 묶음 (기본: kci)",
+    )
+    ap.add_argument(
+        "--team-root",
+        type=Path,
+        default=ROOT,
+        help="team-news profile의 dataset/ 및 models/가 있는 루트",
+    )
     a = ap.parse_args()
 
     print(f"python  : {sys.version.split()[0]}  ({sys.executable})")
@@ -106,24 +119,41 @@ def main():
         except Exception as e:
             print(f"[warn] import {mod} 실패 — {why} ({e})")
 
-    # ── ③ 데이터 파일 ───────────────────────────────────────────
-    for rel, expect in DATA_EXPECT.items():
-        p = ROOT / rel
-        if not p.exists():
-            report(rel, False, "파일 없음")
-            continue
-        n = sum(1 for _ in open(p, encoding="utf-8"))
-        report(rel, n == expect, f"{n}행 (기대 {expect})")
-    for rel in DATA_EXIST:
-        p = ROOT / rel
-        report(rel, p.exists(), f"{p.stat().st_size/1e6:.1f}MB" if p.exists() else "파일 없음")
-    for rel, expect in DATA_OPTIONAL.items():
-        p = ROOT / rel
-        if not p.exists():
-            print(f"[warn] {rel} 없음 — OOD 외부 프로브만 생략")
-            continue
-        n = sum(1 for _ in open(p, encoding="utf-8"))
-        report(rel, n == expect, f"{n}행 (기대 {expect}, 선택)")
+    # ── ③ 데이터·초기 체크포인트 ────────────────────────────────
+    if a.profile == "kci":
+        for rel, expect in DATA_EXPECT.items():
+            p = ROOT / rel
+            if not p.exists():
+                report(rel, False, "파일 없음")
+                continue
+            n = sum(1 for _ in open(p, encoding="utf-8"))
+            report(rel, n == expect, f"{n}행 (기대 {expect})")
+        for rel in DATA_EXIST:
+            p = ROOT / rel
+            report(rel, p.exists(), f"{p.stat().st_size/1e6:.1f}MB" if p.exists() else "파일 없음")
+        for rel, expect in DATA_OPTIONAL.items():
+            p = ROOT / rel
+            if not p.exists():
+                print(f"[warn] {rel} 없음 — OOD 외부 프로브만 생략")
+                continue
+            n = sum(1 for _ in open(p, encoding="utf-8"))
+            report(rel, n == expect, f"{n}행 (기대 {expect}, 선택)")
+    elif a.profile == "team-news":
+        team = a.team_root.resolve()
+        pairs = team / "dataset/news_track/news_dpair_D2.jsonl"
+        generator = team / "models/news_dpo_D2/dpo_bart.pt"
+        detector = team / "models/news_roberta_D2"
+        if pairs.is_file():
+            n = sum(1 for line in pairs.open(encoding="utf-8") if line.strip())
+            report("team-news pairs", n == 19738, f"{n}행 (기대 19738): {pairs}")
+        else:
+            report("team-news pairs", False, f"파일 없음: {pairs}")
+        report("team-news G1", generator.is_file(), str(generator))
+        detector_weights = [detector / "model.safetensors", detector / "pytorch_model.bin"]
+        detector_ok = (detector / "config.json").is_file() and any(p.is_file() for p in detector_weights)
+        report("team-news detector", detector_ok, str(detector))
+    else:
+        print("[warn] --profile none — 비공개 데이터·체크포인트 검사를 생략")
 
     # ── ④ UTF-8 왕복 ────────────────────────────────────────────
     try:

@@ -107,3 +107,6 @@ logs/
 *.tgz
 # Drive 반출용 준비 폴더 — 문서는 mash/·루트에 원본이 있고 여기 것은 사본이다
 mash/drive_upload/
+
+# 로컬 검증용 임시 산출물
+tmp/
