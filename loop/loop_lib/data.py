@@ -21,8 +21,55 @@ SPLITS = ("train", "dev", "test")
 EXPECTED = {"train": 7249, "dev": 946, "test": 920, "total": 9115}
 
 
+def _limit_by_split(rows, limit):
+    if not limit:
+        return rows
+    by = {k: [] for k in SPLITS}
+    for r in rows:
+        if len(by[r["split"]]) < limit:
+            by[r["split"]].append(r)
+    return [r for k in SPLITS for r in by[k]]
+
+
+def _load_paired_jsonl(path, limit=None):
+    """이미 pair 형태인 외부 데이터셋을 정본 스키마로 검증해 읽는다.
+
+    필수 필드는 ``doc_id|id, split, human_text, ai_text``다. 원본 파일을 직접
+    수정하지 않고 스냅샷/어댑터 파일을 연결할 때 사용한다.
+    """
+    rows, seen = [], set()
+    for i, raw in enumerate(io_utils.iter_jsonl(path), 1):
+        doc_id = raw.get("doc_id") or raw.get("id")
+        split = raw.get("split")
+        if not doc_id or split not in SPLITS or not raw.get("human_text") or not raw.get("ai_text"):
+            raise ValueError(
+                f"{path}:{i}: 필수 pair 필드가 없거나 split 이 잘못됐다 "
+                f"(doc_id|id, split={SPLITS}, human_text, ai_text)"
+            )
+        if doc_id in seen:
+            raise ValueError(f"{path}:{i}: 중복 doc_id={doc_id}")
+        seen.add(doc_id)
+        rows.append({
+            **raw,
+            "doc_id": doc_id,
+            "kci_article_id": raw.get("kci_article_id", doc_id),
+            "split": split,
+            "human_text": raw["human_text"],
+            "ai_text": raw["ai_text"],
+            "title": raw.get("title", ""),
+            "field": raw.get("field", ""),
+        })
+    if not rows:
+        raise RuntimeError(f"pair 데이터가 비었다: {path}")
+    return _limit_by_split(rows, limit)
+
+
 def load_pairs(cfg, limit=None):
     """전 pair 로드. limit 는 스모크용 — split 별로 앞에서 limit 개씩만 남긴다."""
+    paired = cfg.data.get("paired_jsonl")
+    if paired:
+        return _load_paired_jsonl(rp(paired), limit=limit)
+
     splits = {r["doc_id"]: r for r in io_utils.iter_jsonl(rp(cfg.data.splits))}
     humans = {r["kci_article_id"]: r for r in io_utils.iter_jsonl(rp(cfg.data.human_pool))}
     gens = {}
@@ -52,11 +99,7 @@ def load_pairs(cfg, limit=None):
         raise RuntimeError(f"splits 에 있는데 원문/생성문이 없는 doc {len(missing)}건: {missing[:5]} …")
 
     if limit:
-        by = {k: [] for k in SPLITS}
-        for r in rows:
-            if len(by[r["split"]]) < limit:
-                by[r["split"]].append(r)
-        rows = [r for k in SPLITS for r in by[k]]
+        rows = _limit_by_split(rows, limit)
     else:
         n = {k: sum(1 for r in rows if r["split"] == k) for k in SPLITS}
         assert len(rows) == EXPECTED["total"] and all(n[k] == EXPECTED[k] for k in SPLITS), (

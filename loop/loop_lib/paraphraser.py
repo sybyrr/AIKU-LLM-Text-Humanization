@@ -105,7 +105,7 @@ class StyleParaphraser(nn.Module):
             return -per_tok_sum  # sum log-prob
         raise ValueError(reduce)
 
-    def _decode_logprob(self, fused, attention_mask, labels):
+    def _decode_logprob(self, fused, attention_mask, labels, normalize=False):
         """인코딩 결과를 재사용해 Σ log p(labels) 만 계산."""
         from transformers.modeling_outputs import BaseModelOutput
 
@@ -118,13 +118,16 @@ class StyleParaphraser(nn.Module):
         V = logits.size(-1)
         ce = F.cross_entropy(logits.view(-1, V), labels.view(-1), ignore_index=-100,
                              reduction="none").view(labels.size())
-        return -(ce * (labels != -100).float()).sum(dim=1)
+        valid = (labels != -100).float()
+        score = -(ce * valid).sum(dim=1)
+        return score / valid.sum(dim=1).clamp(min=1) if normalize else score
 
-    def pair_logprobs(self, input_ids, attention_mask, style_ids, labels_w, labels_l):
+    def pair_logprobs(self, input_ids, attention_mask, style_ids, labels_w, labels_l,
+                      normalize=False):
         """DPO 용 — 인코더 1회, 디코더 2회로 (Σlogp_w, Σlogp_l)."""
         fused = self.fuse(input_ids, attention_mask, style_ids)
-        return (self._decode_logprob(fused, attention_mask, labels_w),
-                self._decode_logprob(fused, attention_mask, labels_l))
+        return (self._decode_logprob(fused, attention_mask, labels_w, normalize=normalize),
+                self._decode_logprob(fused, attention_mask, labels_l, normalize=normalize))
 
     @torch.no_grad()
     def generate_from(self, input_ids, attention_mask, style_ids, **gen_kwargs):

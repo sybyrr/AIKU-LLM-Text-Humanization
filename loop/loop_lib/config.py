@@ -93,6 +93,9 @@ def round_dir(cfg, t, arm=None) -> Path:
 def generator_in(cfg, t, arm=None) -> Path:
     """라운드 t 가 시작할 때 쓰는 재서술기 G_{t-1} 의 경로."""
     if t <= 1:
+        initial = cfg.paths.get("initial_generator")
+        if initial:
+            return rp(initial)
         return stage2_dir(cfg) / "best"
     return round_dir(cfg, t - 1, arm) / "dpo" / "final"
 
@@ -100,6 +103,9 @@ def generator_in(cfg, t, arm=None) -> Path:
 def detector_in(cfg, t, arm=None) -> Path:
     """라운드 t 의 신호원 탐지기 D_t 의 경로 (τ 파일은 같은 폴더의 tau.json)."""
     if t <= 1:
+        initial = cfg.paths.get("initial_detector")
+        if initial:
+            return rp(initial)
         return stage0_dir(cfg) / "detector_d0"
     return round_dir(cfg, t - 1, arm) / "detector" / "model"
 

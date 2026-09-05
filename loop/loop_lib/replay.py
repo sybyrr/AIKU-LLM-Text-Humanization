@@ -21,6 +21,14 @@ def build_buffer(cfg, pairs_train, t, arm=None):
     groups = {}  # name → list[text]
     if mode == "full":
         groups["orig_ai"] = [r["ai_text"] for r in pairs_train]
+        bootstrap = cfg.arm.get("bootstrap_replay")
+        if bootstrap:
+            rows = [x for x in io_utils.iter_jsonl(C.rp(bootstrap)) if x.get("text")]
+            train_ids = {r["doc_id"] for r in pairs_train}
+            rows = [x for x in rows if x.get("doc_id") in train_ids]
+            if not rows:
+                raise RuntimeError(f"bootstrap replay 생성물이 비었다: {bootstrap}")
+            groups["para_bootstrap"] = [x["text"] for x in rows]
         rounds = range(1, t + 1)
     elif mode == "latest_only":
         rounds = [t]

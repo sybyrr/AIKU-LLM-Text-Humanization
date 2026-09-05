@@ -7,9 +7,9 @@ set -euo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
-PY=${PY:-/workspace/.venv/bin/python3}
-[ -x "$PY" ] || PY=python3
+PY=${PY:-$(command -v python3)}
 EXTRA=${EXTRA:-}
+export CUDA_DEVICE_ORDER=${CUDA_DEVICE_ORDER:-PCI_BUS_ID}
 
 echo "===== check_env ====="
 "$PY" "$ROOT/loop/check_env.py" || { echo "환경 검사 실패 — 중단"; exit 1; }

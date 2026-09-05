@@ -10,7 +10,7 @@
   ④ UTF-8 왕복 (컨테이너 로케일이 POSIX 라 한글이 깨질 수 있음)
 
 사용:
-  /workspace/.venv/bin/python3 loop/check_env.py          # 서버
+  python loop/check_env.py                                # 활성 Conda 환경
   python loop/check_env.py --cpu-only                     # 로컬 스모크 전
 종료코드 0 = 전부 통과.
 """
@@ -31,15 +31,13 @@ for _stream in (sys.stdout, sys.stderr):
 
 ROOT = Path(__file__).resolve().parents[1]
 
-DATA_EXPECT = {
-    "data/splits_v2.jsonl": 9115,
-    "data/prompts_ood_test.jsonl": 920,
-}
+DATA_EXPECT = {"data/splits_v2.jsonl": 9115}
 DATA_EXIST = [
     "data/human_pool.jsonl.gz",
     "data/gen_full_p3b_clean.jsonl.gz",
     "data/kci_eval_bodies.jsonl.gz",
 ]
+DATA_OPTIONAL = {"data/prompts_ood_test.jsonl": 920}
 
 ok_all = True
 
@@ -119,6 +117,13 @@ def main():
     for rel in DATA_EXIST:
         p = ROOT / rel
         report(rel, p.exists(), f"{p.stat().st_size/1e6:.1f}MB" if p.exists() else "파일 없음")
+    for rel, expect in DATA_OPTIONAL.items():
+        p = ROOT / rel
+        if not p.exists():
+            print(f"[warn] {rel} 없음 — OOD 외부 프로브만 생략")
+            continue
+        n = sum(1 for _ in open(p, encoding="utf-8"))
+        report(rel, n == expect, f"{n}행 (기대 {expect}, 선택)")
 
     # ── ④ UTF-8 왕복 ────────────────────────────────────────────
     try:

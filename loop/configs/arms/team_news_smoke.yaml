@@ -1,0 +1,37 @@
+paths:
+  runs: loop/runs/team_news_smoke
+  initial_generator: loop/runs/team_news_smoke/stage2/best
+  initial_detector: loop/runs/team_news_smoke/arms/team_news_smoke/round0/detector/model
+
+data:
+  paired_jsonl: data/team_news/news_dpair_D2.jsonl.gz
+
+rounds:
+  n_candidates: 2
+  n_candidates_max: 2
+  gen_batch_size: 2
+  max_pairs_per_doc: 1
+
+dpo:
+  lr: 5.0e-6
+  beta: 2.0
+  epochs: 1
+  batch_size: 2
+  grad_accum: 2
+  grad_clip: 1.0
+  length_norm: true
+  dpop: true
+  dpop_lambda: 5.0
+
+eval:
+  enable_simcse: false
+  enable_ppl: false
+  ck_export: false
+  eval_batch_size: 2
+
+arm:
+  name: team_news_smoke
+  anchor: human
+  detector_reinit: true
+  replay: full
+  bootstrap_replay: loop/runs/team_news_smoke/arms/team_news_smoke/round0/detector/replay_gen.jsonl.gz

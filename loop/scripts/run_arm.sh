@@ -5,6 +5,7 @@
 #   IGNORE_GATE=1 …               # 붕괴에도 계속 (붕괴 궤적 관찰용)
 # 레인 배치(notes/31): 0=main · 1=self_anchor · 2=continual · 3=latest_only
 set -euo pipefail
+export CUDA_DEVICE_ORDER=${CUDA_DEVICE_ORDER:-PCI_BUS_ID}
 
 ARM=${1:?arm}
 START=${2:-1}

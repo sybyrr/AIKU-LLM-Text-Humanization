@@ -91,8 +91,8 @@ def main():
     assert len(g_texts) == len(test)
 
     # ── ② 탐지기 채점 ───────────────────────────────────────────
-    dt_dir = C.detector_in(cfg, max(t, 1))          # round 0·1 → D₀
     d0_dir = C.stage0_dir(cfg) / "detector_d0"
+    dt_dir = d0_dir if t == 0 else C.detector_in(cfg, t)
     tau_t = io.read_json(C.tau_of(dt_dir))["tau"]
     tau_0 = io.read_json(d0_dir / "tau.json")["tau"]
 

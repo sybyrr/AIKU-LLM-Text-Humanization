@@ -31,9 +31,15 @@ class PrefDataset(Dataset):
 
 def make_collate(tok, para_cfg):
     def to_labels(texts):
-        lab = tok(text_target=texts, truncation=True, max_length=para_cfg.max_tgt_len,
-                  padding=True, return_tensors="pt").input_ids
-        lab[lab == tok.pad_token_id] = -100
+        # ko-BART tokenizer 는 EOS 를 자동으로 붙이지 않는다. 팀 SFT/DPO와 동일하게
+        # EOS를 명시해 종료 학습을 보존하고, 나머지 pad만 -100으로 가린다.
+        seqs = [tok(t, truncation=True, max_length=para_cfg.max_tgt_len - 1).input_ids
+                for t in texts]
+        seqs = [s if s and s[-1] == tok.eos_token_id else s + [tok.eos_token_id] for s in seqs]
+        width = max(len(s) for s in seqs)
+        lab = torch.full((len(seqs), width), -100, dtype=torch.long)
+        for i, seq in enumerate(seqs):
+            lab[i, :len(seq)] = torch.tensor(seq, dtype=torch.long)
         return lab
 
     def collate(batch):
@@ -62,6 +68,9 @@ def run_dpo(cfg, model, tok, prefs, out_dir, device, epochs=None, log_prefix="dp
                     collate_fn=make_collate(tok, cfg.paraphraser))
 
     optim = torch.optim.AdamW(model.parameters(), lr=d.lr)
+    length_norm = bool(d.get("length_norm", False))
+    dpop = bool(d.get("dpop", False))
+    dpop_lambda = float(d.get("dpop_lambda", 5.0))
     history = []
     for ep in range(1, epochs + 1):
         model.train()
@@ -71,9 +80,12 @@ def run_dpo(cfg, model, tok, prefs, out_dir, device, epochs=None, log_prefix="dp
             style = torch.full((lab_w.size(0),), STYLE_HUMAN, dtype=torch.long, device=device)
             pol_w, pol_l = model.pair_logprobs(
                 enc["input_ids"].to(device), enc["attention_mask"].to(device), style,
-                lab_w.to(device), lab_l.to(device),
+                lab_w.to(device), lab_l.to(device), normalize=length_norm,
             )
-            margin = (pol_w - ref_w.to(device)) - (pol_l - ref_l.to(device))
+            ref_w, ref_l = ref_w.to(device), ref_l.to(device)
+            margin = (pol_w - ref_w) - (pol_l - ref_l)
+            if dpop:
+                margin = margin - dpop_lambda * torch.relu(ref_w - pol_w)
             loss = -F.logsigmoid(d.beta * margin).mean()
             (loss / d.grad_accum).backward()
             if (i + 1) % d.grad_accum == 0 or (i + 1) == len(dl):
@@ -91,6 +103,8 @@ def run_dpo(cfg, model, tok, prefs, out_dir, device, epochs=None, log_prefix="dp
         print(f"[{log_prefix}] {rec}", flush=True)
 
     P.save(model, tok, out_dir / "final", {"epochs": epochs, "n_prefs": len(prefs),
-                                           "beta": d.beta, "lr": d.lr})
+                                           "beta": d.beta, "lr": d.lr,
+                                           "length_norm": length_norm, "dpop": dpop,
+                                           "dpop_lambda": dpop_lambda if dpop else None})
     io_utils.write_json(out_dir / "history.json", history)
     return history

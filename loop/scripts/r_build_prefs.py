@@ -116,7 +116,8 @@ def main():
                 style = torch.full((len(chunk),), P.STYLE_HUMAN, dtype=torch.long, device=device)
                 lw, ll = gmodel.pair_logprobs(enc["input_ids"].to(device),
                                               enc["attention_mask"].to(device), style,
-                                              lab_w.to(device), lab_l.to(device))
+                                              lab_w.to(device), lab_l.to(device),
+                                              normalize=bool(cfg.dpo.get("length_norm", False)))
                 for c, w, l in zip(chunk, lw.tolist(), ll.tolist()):
                     c["ref_logp_w"], c["ref_logp_l"] = w, l
         del gmodel
