@@ -1,0 +1,27 @@
+# 학습 루프 의존성 — 서버 /workspace/.venv 기준.
+#
+# ⚠ torch 는 여기서 핀하지 않는다. TITAN Xp(sm_61, Pascal)는 최신 휠에서 빠지는
+#   추세라, 서버에서 `python loop/check_env.py` 가 통과하는 torch 가 곧 정답이다.
+#   실패(no kernel image ...) 시 cu118 계열로 내려야 하고, 그때는 transformers 도
+#   함께 내려간다 (notes/31 § 로컬 ↔ 서버 분업). 확인된 조합을 아래에 기록할 것.
+#
+#   조합 A (1순위, 서버 .venv 현행): torch 2.13/cu126 + transformers 5.15  → check_env 로 검증
+#   조합 B (폴백): torch 2.x+cu118 휠 + transformers 4.4x  → sm_61 커널 포함 확인 후 기록
+#
+# 로컬(Windows, CPU 스모크) 검증 완료 조합: torch 2.12.1+cpu · transformers 5.15.0
+#   · scikit-learn 1.8.0 · kiwipiepy 0.23.2
+
+transformers==5.15.0
+tokenizers>=0.20
+pyyaml>=6.0
+numpy>=1.26
+scikit-learn>=1.4
+scipy>=1.11
+kiwipiepy>=0.18        # 형태소 — 문체 특징·고유명사 보존 (없으면 해당 지표만 생략됨)
+python-docx>=1.1       # 카피킬러 업로드용 docx export
+pdfplumber>=0.11       # 카피킬러 PDF 파싱
+pypdf>=5.0             # 전수 결과 PDF 메타데이터·페이지 검사
+tqdm>=4.66
+
+# 선택 (기본 off): MAUVE 를 켤 때만
+# mauve-text

@@ -1,0 +1,7 @@
+# 레인 2 — continual 탐지기 ablation. 탐지기 기억이 붕괴를 앞당기는가.
+# D_{t+1} 을 사전학습 체크포인트가 아니라 D_t 에서 이어서 학습한다.
+arm:
+  name: continual
+  anchor: human
+  detector_reinit: false
+  replay: full

@@ -1,0 +1,29 @@
+# 팀 뉴스 D2/DPO 결과를 G1,D0로 가져와 D1 재학습 후 G2 DPO를 수행하는 주 실험.
+paths:
+  runs: loop/runs/team_news
+  initial_generator: loop/runs/team_news/stage2/best
+  initial_detector: loop/runs/team_news/arms/team_news/round0/detector/model
+
+data:
+  paired_jsonl: data/team_news/news_dpair_D2.jsonl.gz
+
+dpo:
+  lr: 5.0e-6
+  beta: 2.0
+  epochs: 1
+  batch_size: 2
+  grad_accum: 8
+  grad_clip: 1.0
+  length_norm: true
+  dpop: true
+  dpop_lambda: 5.0
+
+eval:
+  ck_export: false
+
+arm:
+  name: team_news
+  anchor: human
+  detector_reinit: true
+  replay: full
+  bootstrap_replay: loop/runs/team_news/arms/team_news/round0/detector/replay_gen.jsonl.gz

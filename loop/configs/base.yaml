@@ -1,0 +1,91 @@
+# 학습 루프 공통 설정 — 값의 근거는 notes/31-학습-루프-설계.md (여기 값이 곧 그 문서의 고정값)
+# 모든 상대 경로는 저장소 루트 기준. loop_lib/config.py 가 해석한다.
+
+seed: 42
+
+paths:
+  runs: loop/runs          # 모든 산출물의 루트 (gitignore 대상)
+
+data:
+  splits: data/splits_v2.jsonl                 # train 7,249 / dev 946 / test 920
+  human_pool: data/human_pool.jsonl.gz         # 인간 초록 9,425편
+  gen: data/gen_full_p3b_clean.jsonl.gz        # AI 재서술 9,115편 (qwen3-8b × P3b)
+  eval_bodies: data/kci_eval_bodies.jsonl.gz   # 모드 B 평가용 300편 (학습셋과 ID 교집합 0)
+
+# ── Stage 0: 대리 탐지기 D₀ ────────────────────────────────────
+detector:
+  model: klue/roberta-base
+  max_len: 512
+  lr: 2.0e-5
+  batch_size: 8            # TITAN Xp 12GB fp32 안전선 (seq 512 기준)
+  grad_accum: 2            # 실효 배치 16
+  epochs: 3
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  kfold: 5                 # train split OOF 채점용 — Stage 1 필터 오염 방지
+  fpr_target: 0.05         # τ = 고정 인간 dev-cal 에서 FPR 5% 지점 (0.5 아님)
+
+anchor:
+  model: monologg/koelectra-base-v3-discriminator   # 동결 앵커 2호 (다른 아키텍처)
+
+# ── Stage 2: Style-injection SFT (1회만) ───────────────────────
+paraphraser:
+  model: gogamza/kobart-base-v2   # 124M. 한국어 2.20자/토큰 → max 512 로 97.6% 커버
+  max_src_len: 512
+  max_tgt_len: 512
+  min_new_tokens: 8               # 빈/퇴화 재서술 방지 하한 (초록엔 항상 만족)
+
+sft:
+  lr: 2.0e-5
+  batch_size: 8
+  epochs: 50
+  lambda_recon: 0.5        # L = λ·L_recon + (1−λ)·L_trans
+  patience: 5              # early stopping — dev trans loss 기준
+  warmup_ratio: 0.06
+  grad_clip: 1.0
+
+# ── Round t = 1..5 ─────────────────────────────────────────────
+rounds:
+  total: 5
+  n_candidates: 8          # 원문당 temperature 샘플 수 (빔서치 아님 — 다양성 필요)
+  n_candidates_max: 16     # hard negative 부족 시 τ를 낮추지 말고 여기까지 증량
+  gen_temperature: 1.0
+  gen_top_p: 0.95
+  gen_batch_size: 4        # 생성 배치 (num_return_sequences 곱해짐)
+  max_pairs_per_doc: 2     # 원문당 DPO pair 수 (D 점수 높은 순 hard negative)
+
+dpo:
+  lr: 5.0e-6
+  beta: 0.1
+  epochs: 5
+  batch_size: 4            # pair 단위 (chosen+rejected 2배 시퀀스)
+  grad_accum: 4
+  grad_clip: 1.0
+
+# ── 탐지기 재학습 게이트 ───────────────────────────────────────
+# τ는 dev-cal(473)에서 FPR 5%로 캘리브레이션하므로 dev-gate(473)의 FPR 는
+# 정상일 때 5%±노이즈다. 이항 3σ ≈ 3%p → 8% 초과 = 붕괴 신호.
+# TPR 바닥은 붕괴의 다른 얼굴(τ 폭등 → AI 못 잡음)을 잡는다. 근거: loop/README.md
+gate:
+  fpr_max: 0.08
+  tpr_min: 0.80
+
+# ── 평가 ───────────────────────────────────────────────────────
+eval:
+  greedy: true                          # 평가 생성은 결정적으로
+  eval_batch_size: 8
+  simcse_model: BM-K/KoSimCSE-roberta   # 의미 보존
+  ppl_model: skt/kogpt2-base-v2         # 독립 한국어 LM 유창성
+  enable_simcse: true
+  enable_ppl: true
+  enable_mauve: false                   # featurizer가 영어 중심 — 보류 (notes/31 평가표)
+  ck_export: true                       # 카피킬러 업로드용 docx 배치 내보내기
+  ck_batch_size: 350                    # 카피킬러 한 검사 목록 한도
+
+# ── arm (기본 = 주 arm, 레인 0) ────────────────────────────────
+# configs/arms/*.yaml 이 이 블록만 덮어쓴다.
+arm:
+  name: main
+  anchor: human            # DPO y_w: human = 원래 인간 초록 (라운드 내내 고정) | self = 자기 최고점 생성물
+  detector_reinit: true    # 라운드마다 사전학습 체크포인트에서 재초기화
+  replay: full             # full = 원본 AI + 전 라운드 재서술문 + 고정 인간 | latest_only = 최신 라운드 재서술문만
