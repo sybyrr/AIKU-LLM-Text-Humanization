@@ -35,17 +35,21 @@ def load_sft(path):
 
 
 @torch.no_grad()
-def gen_human_style(sft, tok, x_ais, n_sample, maxlen=512):
+def gen_human_style(sft, tok, x_ais, n_sample, maxlen=512,
+                    no_repeat_ngram_size=3):
     """SFT HSR 경로로 human 스타일 후보 생성 (배치). x_ais 리스트 → 입력별 후보 리스트.
     배치로 묶어 한 번에 generate → GPU 활용률↑ (건별 호출의 언배치 오버헤드 제거)."""
     enc = tok(x_ais, padding=True, truncation=True, max_length=maxlen, return_tensors="pt").to(DEV)
     cr = sft.encode(enc.input_ids, enc.attention_mask)
     fused = sft.fuse(cr, sft.hsr)   # concat fuse
-    out = sft.bart.generate(
+    generation = dict(
         encoder_outputs=BaseModelOutput(last_hidden_state=fused),
         attention_mask=enc.attention_mask, max_length=maxlen,
         do_sample=True, top_p=0.95, temperature=1.0,
-        num_return_sequences=n_sample, no_repeat_ngram_size=3)
+        num_return_sequences=n_sample)
+    if no_repeat_ngram_size > 0:
+        generation["no_repeat_ngram_size"] = no_repeat_ngram_size
+    out = sft.bart.generate(**generation)
     texts = [tok.decode(o, skip_special_tokens=True) for o in out]
     # num_return_sequences 는 입력별로 그룹화됨: 입력 i → texts[i*k:(i+1)*k]
     return [texts[i * n_sample:(i + 1) * n_sample] for i in range(len(x_ais))]
@@ -67,6 +71,8 @@ def main():
     ap.add_argument("--tau", type=float, default=0.5, help="D>τ 인 것만 rejected(hard neg)")
     ap.add_argument("--n-sample", type=int, default=4)
     ap.add_argument("--batch", type=int, default=32, help="한 번에 생성할 x_ai 개수(배치)")
+    ap.add_argument("--no-repeat-ngram-size", type=int, default=3,
+                    help="hard-negative 후보 생성 제약. 0이면 끔. 최종 plain 평가는 항상 0")
     ap.add_argument("--split", default="train")
     args = ap.parse_args()
 
@@ -91,14 +97,17 @@ def main():
     for idx, p in enumerate(pairs):
         p.setdefault("_idx", idx)
     todo = [p for p in pairs if p.get("id", p["_idx"]) not in done]
-    print(f"처리 대상 {len(todo):,} · 배치 {args.batch} · n_sample {args.n_sample}", flush=True)
+    print(f"처리 대상 {len(todo):,} · 배치 {args.batch} · n_sample {args.n_sample}"
+          f" · no_repeat_ngram_size {args.no_repeat_ngram_size}", flush=True)
 
     n_out, n_no_hard = len(done), 0
     with open(args.out, "a") as f:
         for bs in range(0, len(todo), args.batch):
             batch = todo[bs:bs + args.batch]
             xais = [p["ai_text"] for p in batch]
-            cand_lists = gen_human_style(sft, tok, xais, args.n_sample)   # 입력별 후보 리스트
+            cand_lists = gen_human_style(
+                sft, tok, xais, args.n_sample,
+                no_repeat_ngram_size=args.no_repeat_ngram_size)
             flat = [c for cl in cand_lists for c in cl]
             ds_flat = d_score(rob, rtok, flat)                            # 배치 채점
             k = args.n_sample
@@ -123,6 +132,20 @@ def main():
             done_n = min(bs + args.batch, len(todo))
             if (bs // args.batch) % 5 == 0 or done_n >= len(todo):
                 print(f"  {done_n}/{len(todo)} · 선호쌍 {n_out} · hard neg 없음 {n_no_hard}", flush=True)
+
+    summary_path = pathlib.Path(args.out).with_suffix(".summary.json")
+    summary_tmp = summary_path.with_suffix(summary_path.suffix + ".tmp")
+    summary_tmp.write_text(json.dumps({
+        "schema_version": 1,
+        "split": args.split,
+        "input_pairs": len(pairs),
+        "preference_pairs": n_out,
+        "no_hard_negative": n_no_hard,
+        "threshold": args.tau,
+        "samples_per_input": args.n_sample,
+        "no_repeat_ngram_size": args.no_repeat_ngram_size,
+    }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    summary_tmp.replace(summary_path)
 
     print(f"\nDPO 선호쌍 {n_out} (hard neg 없어 스킵 {n_no_hard}) → {args.out}")
     print("hard neg 없음 = SFT 가 이미 human 으로 잘 바꾼 케이스(τ 미만). 많으면 SFT 가 좋다는 뜻.")

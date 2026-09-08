@@ -15,7 +15,7 @@ MASH 의 이중 경로 구조를 ko-BART 에 얹는다. 논문 식 (4)(5):
     학습으로 키운다. (이전 additive 형 `cr+fusion(cr+style)` 은 content 를 오염시켜 붕괴 유발.)
   · λ = 0.5 기본. recon(의미) vs trans(문체) 균형.
 
-장시간(clean20k 16k×수ep) 대비 epoch 별 last.pt 저장 + --resume 지원(사용자 요구: 안 끊기게).
+장시간 대규모 학습 대비 epoch 별 last.pt 저장 + --resume 지원(사용자 요구: 안 끊기게).
 
 두 경로 모두 디코더 입력은 teacher forcing 이다. 경로1 정답=x_ai, 경로2 정답=x_human.
 추론 시엔 HSR 경로만 쓴다(x_ai → x_human 스타일).
