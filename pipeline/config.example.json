@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "domain": "example",
+  "workspace": "..",
+  "paths": {
+    "human_pool": "dataset/{domain}_track/human_pool.jsonl",
+    "prompts": "dataset/{domain}_track/prompts.jsonl",
+    "pairs": "dataset/{domain}_track/dpair.jsonl",
+    "dpo_pairs": "dataset/{domain}_track/dpo_pairs.jsonl",
+    "detector": "models/{domain}_roberta_D",
+    "sft": "models/{domain}_sft",
+    "dpo": "models/{domain}_dpo",
+    "evaluation": "logs/{domain}/eval.jsonl"
+  },
+  "generators": [
+    {
+      "name": "qwen",
+      "model": "qwen3-8b",
+      "url": "http://127.0.0.1:8081/v1/chat/completions",
+      "output": "dataset/{domain}_track/gen_qwen.jsonl",
+      "no_think": true,
+      "temperature": 0.8,
+      "token_ratio": 0.8,
+      "slots": 4,
+      "seed": 42
+    },
+    {
+      "name": "exaone",
+      "model": "exaone-3.5-7.8b",
+      "url": "http://127.0.0.1:8082/v1/chat/completions",
+      "output": "dataset/{domain}_track/gen_exaone.jsonl",
+      "no_think": false,
+      "temperature": 0.8,
+      "token_ratio": 0.8,
+      "slots": 4,
+      "seed": 42
+    }
+  ],
+  "gate": {
+    "detector_documents": 750,
+    "threshold": 0.5,
+    "epochs": 3,
+    "batch_size": 16,
+    "split_ratio": "0.8,0.1,0.1",
+    "split_key": null,
+    "detector_group_selection": "large",
+    "stratify": false,
+    "dialogue": false,
+    "minimum_pairs": 50
+  },
+  "sft": {
+    "epochs": 3,
+    "batch_size": 8,
+    "learning_rate": 0.00002,
+    "lambda": 0.5,
+    "max_length": 512
+  },
+  "hard_negative": {
+    "threshold": 0.5,
+    "samples_per_input": 4,
+    "batch_size": 32,
+    "no_repeat_ngram_size": 3,
+    "minimum_pairs": 30
+  },
+  "dpo": {
+    "epochs": 1,
+    "batch_size": 2,
+    "gradient_accumulation": 8,
+    "learning_rate": 0.000005,
+    "beta": 2.0,
+    "dpop_lambda": 5.0,
+    "max_length": 512,
+    "seed": 42
+  },
+  "evaluation": {
+    "enabled": true,
+    "sample_size": 0,
+    "seed": 42,
+    "num_beams": 4,
+    "input_max_length": 512,
+    "output_max_length": 1024,
+    "generation_batch_size": 8,
+    "scoring_batch_size": 16,
+    "scrn": null
+  }
+}
