@@ -2,11 +2,11 @@
 
 정본 실행: [../pipeline/README.md](../pipeline/README.md) · 연구 기록: [../notes/README.md](../notes/README.md)
 
-> 새 실행은 [../pipeline/run.py](../pipeline/README.md)를 진입점으로 사용한다. 이 디렉터리는
-> 단계별 구현체와 연구용 분석 도구를 보관하며, 정본 설정·재개·평가는 pipeline/에서 관리한다.
+> 새 실행은 [../pipeline/run.py](../pipeline/README.md)를 진입점으로 사용합니다. 이 디렉터리는
+> 단계별 구현체와 연구용 분석 도구를 보관하며, 정본 설정·재개·평가는 pipeline/에서 관리합니다.
 
 데이터·모델은 저장소에 없다(라이선스 — 루트 README 참조). 아래 스크립트는 `dataset/`·`models/` 를
-로컬에 배치한 상태에서 돈다.
+로컬에 배치한 상태에서 돕니다.
 
 ## Stage 1–3 정본 파이프라인 (도메인 무관)
 
@@ -40,8 +40,8 @@
 
 `collect_kci*.py`, `stage0_*.py`, `build_human_pool.py`, `build_final_dataset.py` 는 초록(KCI 논문 초록)
 도메인의 수집·검사·조립이다(카피킬러 게이트 기반, 별도 명세는 `../mash/PIPELINE.md` 참고). Stage 2–3
-학습은 위 정본 파이프라인과 공유한다.
+학습은 위 정본 파이프라인과 공유합니다.
 
 ## 서버 · 유틸
 
-`gpu_serve.sh`(llama-server 기동), `run_pilot.sh` 등은 생성 서버·파일럿 실행 보조다.
+`gpu_serve.sh`(llama-server 기동), `run_pilot.sh` 등은 생성 서버·파일럿 실행 보조입니다.
