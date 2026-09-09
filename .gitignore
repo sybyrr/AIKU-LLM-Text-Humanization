@@ -92,6 +92,8 @@ mash/copykiller_v2_zip/
 # 로컬 파이프라인 설정(경로·서버 주소가 들어갈 수 있음)
 pipeline/config.*.json
 !pipeline/config.example.json
+# 프롬프트 기준선의 로컬 데이터·모델 경로 설정
+baselines/config.local.json
 
 
 # ── 실행 로그 ────────────────────────────────────────────────

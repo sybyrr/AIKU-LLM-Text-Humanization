@@ -1,0 +1,63 @@
+{
+  "reference_dir": "logs/transfer_current6",
+  "prompt_output_dir": "dataset/humanizer_skill_baseline/prompts",
+  "generation_output_dir": "dataset/humanizer_skill_baseline/generations",
+  "evaluation_output_dir": "logs/humanizer_skill_baseline",
+  "generation": {
+    "qwen": {
+      "model": "qwen3-8b",
+      "urls": [
+        "http://127.0.0.1:8300/v1/chat/completions",
+        "http://127.0.0.1:8301/v1/chat/completions",
+        "http://127.0.0.1:8302/v1/chat/completions",
+        "http://127.0.0.1:8303/v1/chat/completions",
+        "http://127.0.0.1:8304/v1/chat/completions"
+      ],
+      "slots": 2,
+      "no_think": true
+    },
+    "exaone": {
+      "model": "exaone-3.5-7.8b",
+      "urls": ["http://127.0.0.1:8305/v1/chat/completions"],
+      "slots": 2,
+      "no_think": false
+    }
+  },
+  "evaluation": {
+    "gpus": [0, 1, 2, 3, 4, 5],
+    "batch_size": 16
+  },
+  "domains": {
+    "news": {
+      "pairs": "dataset/news_track/news_dpair_clean20k.jsonl",
+      "detector": "models/news_roberta_D",
+      "scrn": "models/news_scrn/scrn_best.pt"
+    },
+    "essay": {
+      "pairs": "dataset/essay_track/dpair.jsonl",
+      "detector": "models/essay_roberta_D_large",
+      "scrn": "models/essay_scrn/scrn_best.pt"
+    },
+    "persona": {
+      "pairs": "dataset/persona_track/dpair.jsonl",
+      "detector": "models/persona_roberta_D",
+      "scrn": "models/persona_scrn/scrn_best.pt",
+      "dialogue": true
+    },
+    "written": {
+      "pairs": "dataset/written_track/dpair.jsonl",
+      "detector": "models/written_roberta_D",
+      "scrn": "models/written_scrn_det/scrn_best.pt"
+    },
+    "petition512B": {
+      "pairs": "dataset/petition_track/gate512b/dpair.jsonl",
+      "detector": "models/petition_roberta_D512b",
+      "scrn": "models/petition_scrn512b/scrn_best.pt"
+    },
+    "wiki512B": {
+      "pairs": "dataset/wiki_track/gate512b/dpair.jsonl",
+      "detector": "models/wiki_roberta_D512b",
+      "scrn": "models/wiki_scrn512b/scrn_best.pt"
+    }
+  }
+}

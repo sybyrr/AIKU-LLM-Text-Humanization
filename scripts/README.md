@@ -32,6 +32,13 @@
 | `analyze_domain.py` | roberta-D CLS 특징 t-SNE + D/SCRN P(AI) |
 | `scrn_train.py` / `scrn_score.py` | 도메인별 독립 탐지기 SCRN(koelectra) 학습·채점 |
 | `detect_binoculars.py` / `detect_fastdetectgpt.py` / `detect_llm_judge.py` | 전이(zero-shot·LLM) 탐지기 |
+| `build_humanizer_skill_baseline.py` | 동일 held-out 문서의 Humanizer-skill 프롬프트 입력과 고정 shard 구성 |
+| `run_humanizer_skill_baseline.py` | 20편 생성·평가·게이트 후 100편으로 확장하는 기준선 오케스트레이터 |
+| `eval_humanizer_skill_baseline.py` | 프롬프트 출력의 D·SCRN·의미 cosine·반복 지표 평가 |
+| `summarize_humanizer_skill_baseline.py` | x_ai·SFT·DPO·Humanizer-skill 비교와 파일럿 품질 게이트 집계 |
+| `zero_shot_matrix.py` | 여러 평가 결과의 텍스트 중복 제거와 Binoculars·FastDetectGPT 분산·재개 채점 |
+| `run_zero_shot_matrix.sh` / `watch_zero_shot_matrix.sh` | GPU shard 실행과 중간 종료 자동 복구·완료 검증 |
+| `summarize_zero_shot_matrix.py` | 6×6 전량 및 프롬프트 기준선 zero-shot 집계 JSON·결과 전용 HTML 생성 |
 | `metrics_quality.py` | BERTScore-F1 의미 보존 |
 | `audit_overlap.py` | 누수 감사 (∩D학습=0, train∩test=0) |
 | `make_dpo_review.py` / `make_stage2_review.py` | SFT/DPO 검수 HTML |
