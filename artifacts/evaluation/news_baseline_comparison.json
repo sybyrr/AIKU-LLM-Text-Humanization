@@ -1,0 +1,53 @@
+{
+  "domain": "news",
+  "matched_test_n": 100,
+  "rows": [
+    {
+      "condition": "Prompting baseline",
+      "source_condition": "Humanizer-skill",
+      "n": 100,
+      "raw_asr_percent": {
+        "RoBERTa": 0.0,
+        "SCRN": 0.0
+      },
+      "semantic_cosine": 0.996,
+      "collapse_percent": 0.0
+    },
+    {
+      "condition": "SFT",
+      "source_condition": "SFT",
+      "n": 100,
+      "raw_asr_percent": {
+        "RoBERTa": 73.0,
+        "SCRN": 63.0
+      },
+      "semantic_cosine": 0.989,
+      "collapse_percent": 0.0
+    },
+    {
+      "condition": "DPOP",
+      "source_condition": "DPO",
+      "n": 100,
+      "raw_asr_percent": {
+        "RoBERTa": 78.0,
+        "SCRN": 66.0
+      },
+      "semantic_cosine": 0.989,
+      "collapse_percent": 1.0
+    }
+  ],
+  "source": "humanizer_skill_baseline_n100_20260909.html",
+  "source_section": "도메인별 상세 결과",
+  "rates_are_reported_rounded_values": true,
+  "protocol_source": "scripts/eval_humanizer_skill_baseline.py",
+  "notes": [
+    "All three conditions are compared on the same 100 document IDs.",
+    "Prompting baseline is the project's Humanizer-skill v1.6.0 batch prompt adaptation.",
+    "The source report labels DPOP as DPO.",
+    "Each detector's ASR threshold is the 95th percentile of human scores on the sampled documents.",
+    "ASR is raw detector pass rate, with collapse reported separately.",
+    "Semantic cosine compares output with original AI input; embeddings are truncated at 256 tokens.",
+    "Acute collapse: a whitespace-free character 6-gram repeated more than 20 times.",
+    "The separate n=2044 full-test results are not used in this comparison."
+  ]
+}

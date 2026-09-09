@@ -1,0 +1,56 @@
+{
+  "domain": "news",
+  "matched_test_n": 1985,
+  "source": "loop/RESULTS.md",
+  "source_sections": [
+    "D1 게이트",
+    "G1과 G2 비교",
+    "CopyKiller 전수 paired 평가"
+  ],
+  "conditions": {
+    "G1": "Existing generator after SFT and first DPOP",
+    "G2": "G1 further trained by DPOP using D1-mined hard negatives"
+  },
+  "G1_ai_detection_rate_percent": {
+    "D0": 6.1,
+    "D1": 96.62
+  },
+  "generator_comparison": [
+    {
+      "detector": "D0",
+      "role": "Frozen",
+      "G1_asr_percent": 93.9,
+      "G2_asr_percent": 92.64,
+      "delta_pp": -1.26
+    },
+    {
+      "detector": "D1",
+      "role": "Adapted",
+      "G1_asr_percent": 3.38,
+      "G2_asr_percent": 3.93,
+      "delta_pp": 0.55
+    },
+    {
+      "detector": "CopyKiller",
+      "role": "External",
+      "G1_asr_percent": 97.03,
+      "G2_asr_percent": 97.83,
+      "G1_ai_count": 59,
+      "G2_ai_count": 43,
+      "delta_pp": 0.8060453400503779
+    }
+  ],
+  "notes": [
+    "Objective: test whether a generator improves with additional DPOP informed by a detector adapted to its outputs.",
+    "G1 and G2 are evaluated on the same 1985 held-out news document IDs.",
+    "D1 was trained using human, original AI, and G1 outputs from train documents, not the test outputs plotted here.",
+    "D1's demonstrated detection improvement is specific to G1 outputs in this news experiment.",
+    "D1 threshold 0.9996544122695923 was calibrated on dev-cal; independent dev-gate human FPR was 6.31%.",
+    "The existing D0 retains its own evaluation protocol; it is not relabeled as a newly calibrated detector.",
+    "CopyKiller is an external detector not used for generator training; its AI threshold is 50%.",
+    "CopyKiller delta is computed from the 16/1985 difference in detections; rounded ASR endpoints differ by 0.80 pp.",
+    "The 1985-document loop evaluation differs from the main 2044-document evaluation in data and protocol.",
+    "Reported aggregates, not a fresh rerun. No significance or confidence intervals are inferred for D0 or D1.",
+    "No second adapted detector D2, cross-domain G2 evaluation, or full semantic-quality results are supplied here."
+  ]
+}

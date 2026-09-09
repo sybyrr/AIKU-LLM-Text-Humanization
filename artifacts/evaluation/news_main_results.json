@@ -1,0 +1,42 @@
+{
+  "domain": "news",
+  "test_n": 2044,
+  "conditions": [
+    "SFT",
+    "DPOP"
+  ],
+  "raw_asr_percent": {
+    "RoBERTa": [
+      72.8,
+      79.6
+    ],
+    "SCRN": [
+      63.3,
+      71.3
+    ]
+  },
+  "semantic_cosine": [
+    0.988,
+    0.988
+  ],
+  "collapse_percent": [
+    0.3,
+    0.8
+  ],
+  "rates_are_reported_rounded_values": true,
+  "source": "experiment_summary_20260907.html",
+  "source_sections": [
+    "주 지표 — Raw ASR과 의미 보존",
+    "보수적 참고 — 비붕괴 조건부 ASR (n and collapse only)"
+  ],
+  "protocol_source": "pipeline/evaluate.py",
+  "notes": [
+    "Report condition DPO is labeled DPOP to match the project's actual training method.",
+    "Raw ASR is the fraction of all outputs passing the detector; collapse is reported separately.",
+    "Each detector threshold is the 95th percentile of human scores in the evaluation set, not 0.5.",
+    "Semantic cosine compares generator output with the original AI input using ko-sroberta-multitask, truncated at 256 tokens.",
+    "Acute collapse: a whitespace-free character 6-gram repeated more than 20 times.",
+    "This full-test comparison does not include the separate matched-n100 prompting baseline.",
+    "Error bars and exact counts are not reconstructed from rounded aggregate rates."
+  ]
+}

@@ -1,0 +1,485 @@
+{
+  "source": "cross_domain_current6_full_20260909.html",
+  "source_section": "36개 조합 상세 수치",
+  "domain_order": [
+    "news",
+    "essay",
+    "persona",
+    "written",
+    "petition512B",
+    "wiki512B"
+  ],
+  "target_test_n": {
+    "news": 2044,
+    "essay": 1022,
+    "persona": 1117,
+    "written": 1057,
+    "petition512B": 1019,
+    "wiki512B": 1287
+  },
+  "raw_asr_percent": {
+    "RoBERTa": {
+      "SFT": [
+        [
+          72.8,
+          3.3,
+          0.4,
+          3.7,
+          2.6,
+          8.7
+        ],
+        [
+          6.3,
+          46.9,
+          1.7,
+          9.0,
+          11.5,
+          6.7
+        ],
+        [
+          31.9,
+          23.8,
+          39.2,
+          8.8,
+          0.3,
+          26.0
+        ],
+        [
+          19.6,
+          24.7,
+          1.2,
+          14.2,
+          2.9,
+          22.8
+        ],
+        [
+          29.5,
+          55.6,
+          13.2,
+          14.9,
+          47.4,
+          14.5
+        ],
+        [
+          9.9,
+          6.7,
+          3.0,
+          3.1,
+          1.0,
+          54.6
+        ]
+      ],
+      "DPOP": [
+        [
+          79.6,
+          4.2,
+          0.5,
+          5.4,
+          4.2,
+          9.6
+        ],
+        [
+          7.4,
+          47.2,
+          2.1,
+          8.0,
+          11.0,
+          7.3
+        ],
+        [
+          46.9,
+          27.7,
+          53.9,
+          13.8,
+          0.5,
+          18.0
+        ],
+        [
+          25.5,
+          36.7,
+          0.8,
+          24.0,
+          5.9,
+          31.4
+        ],
+        [
+          35.8,
+          65.9,
+          14.9,
+          21.2,
+          56.7,
+          19.4
+        ],
+        [
+          12.9,
+          8.8,
+          4.3,
+          3.6,
+          1.5,
+          60.8
+        ]
+      ]
+    },
+    "SCRN": {
+      "SFT": [
+        [
+          63.3,
+          3.4,
+          15.0,
+          20.5,
+          2.4,
+          21.6
+        ],
+        [
+          5.5,
+          40.8,
+          33.6,
+          28.4,
+          33.7,
+          15.4
+        ],
+        [
+          22.6,
+          5.9,
+          56.2,
+          56.0,
+          1.8,
+          13.4
+        ],
+        [
+          14.1,
+          10.5,
+          39.3,
+          46.9,
+          9.7,
+          34.7
+        ],
+        [
+          25.6,
+          56.0,
+          59.5,
+          33.7,
+          65.3,
+          26.9
+        ],
+        [
+          5.7,
+          6.5,
+          37.9,
+          18.7,
+          2.5,
+          56.7
+        ]
+      ],
+      "DPOP": [
+        [
+          71.3,
+          4.4,
+          17.7,
+          24.4,
+          4.3,
+          27.0
+        ],
+        [
+          6.5,
+          39.2,
+          30.6,
+          29.9,
+          29.4,
+          16.2
+        ],
+        [
+          24.4,
+          7.9,
+          67.6,
+          66.2,
+          1.6,
+          40.3
+        ],
+        [
+          20.4,
+          13.2,
+          40.6,
+          60.5,
+          11.3,
+          48.5
+        ],
+        [
+          31.7,
+          64.1,
+          62.6,
+          42.7,
+          71.8,
+          37.3
+        ],
+        [
+          8.0,
+          8.9,
+          42.5,
+          20.6,
+          4.1,
+          64.8
+        ]
+      ]
+    }
+  },
+  "macro_asr_percent": {
+    "RoBERTa": {
+      "SFT": {
+        "same_domain": 45.9,
+        "cross_domain": 12.2
+      },
+      "DPOP": {
+        "same_domain": 53.7,
+        "cross_domain": 15.2
+      }
+    },
+    "SCRN": {
+      "SFT": {
+        "same_domain": 54.9,
+        "cross_domain": 22.0
+      },
+      "DPOP": {
+        "same_domain": 62.5,
+        "cross_domain": 26.2
+      }
+    }
+  },
+  "means_of_rounded_cells_for_validation": {
+    "RoBERTa": {
+      "SFT": {
+        "same_domain": 45.849999999999994,
+        "cross_domain": 12.243333333333334
+      },
+      "DPOP": {
+        "same_domain": 53.699999999999996,
+        "cross_domain": 15.173333333333334
+      }
+    },
+    "SCRN": {
+      "SFT": {
+        "same_domain": 54.86666666666667,
+        "cross_domain": 22.016666666666666
+      },
+      "DPOP": {
+        "same_domain": 62.53333333333333,
+        "cross_domain": 26.243333333333336
+      }
+    }
+  },
+  "collapse_percent": {
+    "SFT": [
+      [
+        0.3,
+        1.2,
+        0.8,
+        1.5,
+        5.5,
+        10.9
+      ],
+      [
+        2.3,
+        0.4,
+        0.8,
+        2.2,
+        3.4,
+        23.1
+      ],
+      [
+        16.7,
+        20.5,
+        0.1,
+        30.2,
+        16.7,
+        41.0
+      ],
+      [
+        0.5,
+        0.8,
+        0.4,
+        0.5,
+        2.1,
+        8.6
+      ],
+      [
+        3.3,
+        2.3,
+        1.9,
+        6.1,
+        6.5,
+        22.9
+      ],
+      [
+        24.1,
+        6.8,
+        1.7,
+        9.2,
+        12.0,
+        9.5
+      ]
+    ],
+    "DPOP": [
+      [
+        0.8,
+        1.6,
+        0.9,
+        1.6,
+        6.6,
+        13.4
+      ],
+      [
+        2.3,
+        0.9,
+        0.6,
+        2.4,
+        4.5,
+        27.6
+      ],
+      [
+        49.5,
+        37.6,
+        0.5,
+        48.8,
+        30.1,
+        86.3
+      ],
+      [
+        0.9,
+        0.9,
+        0.3,
+        0.6,
+        3.4,
+        12.6
+      ],
+      [
+        4.1,
+        2.5,
+        1.2,
+        6.1,
+        7.4,
+        24.6
+      ],
+      [
+        27.2,
+        7.6,
+        1.8,
+        10.5,
+        13.0,
+        12.5
+      ]
+    ]
+  },
+  "semantic_cosine": {
+    "SFT": [
+      [
+        0.988,
+        0.984,
+        0.992,
+        0.985,
+        0.972,
+        0.982
+      ],
+      [
+        0.988,
+        0.991,
+        0.992,
+        0.988,
+        0.983,
+        0.983
+      ],
+      [
+        0.943,
+        0.934,
+        0.994,
+        0.936,
+        0.931,
+        0.883
+      ],
+      [
+        0.992,
+        0.99,
+        0.995,
+        0.992,
+        0.981,
+        0.986
+      ],
+      [
+        0.983,
+        0.988,
+        0.981,
+        0.977,
+        0.977,
+        0.97
+      ],
+      [
+        0.983,
+        0.984,
+        0.988,
+        0.985,
+        0.978,
+        0.976
+      ]
+    ],
+    "DPOP": [
+      [
+        0.988,
+        0.984,
+        0.992,
+        0.984,
+        0.966,
+        0.979
+      ],
+      [
+        0.988,
+        0.991,
+        0.992,
+        0.988,
+        0.983,
+        0.984
+      ],
+      [
+        0.868,
+        0.913,
+        0.993,
+        0.912,
+        0.911,
+        0.672
+      ],
+      [
+        0.989,
+        0.99,
+        0.994,
+        0.99,
+        0.979,
+        0.983
+      ],
+      [
+        0.98,
+        0.987,
+        0.984,
+        0.976,
+        0.973,
+        0.967
+      ],
+      [
+        0.979,
+        0.98,
+        0.986,
+        0.983,
+        0.973,
+        0.975
+      ]
+    ]
+  },
+  "notes": [
+    "Both cell values and macro means are read from the report. Macro means are not re-rounded from already-rounded cell values.",
+    "Same-domain is the unweighted mean of 6 diagonal cells; cross-domain is the unweighted mean of 30 off-diagonal cells.",
+    "Every source generator is applied to the full test split of each target; source-target combinations reuse target documents.",
+    "Scoring uses the target domain's RoBERTa and SCRN, each with its full-human-score 95th-percentile threshold.",
+    "DPO in the report is displayed as DPOP; no second-round G2 is included.",
+    "Raw ASR includes collapsed outputs. High ASR alone does not establish successful content-preserving transfer.",
+    "Semantic cosine is based on 256-token-truncated embeddings and cannot validate full-document quality.",
+    "The short display labels Petition and Wiki denote the petition512B and wiki512B tracks.",
+    "No uncertainty intervals are reconstructed from rounded aggregate results."
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "detector": "klue/roberta-base (fine-tuned)",
+  "domain": "news",
+  "training_article_ids": 750,
+  "training_texts": {
+    "human": 750,
+    "qwen": 750,
+    "exaone": 750
+  },
+  "held_out_article_ids": 2250,
+  "threshold_ai": 0.5,
+  "stage": "Before detector gating and generator rewriting; failed generations excluded",
+  "rates_are_rounded": true,
+  "rows": [
+    {
+      "label": "인간 원문",
+      "metric": "TNR",
+      "correct_prediction": "Human → Human",
+      "correct_percent": 85
+    },
+    {
+      "label": "Qwen3-8B",
+      "metric": "TPR",
+      "correct_prediction": "AI → AI",
+      "correct_percent": 99
+    },
+    {
+      "label": "EXAONE-3.5-7.8B",
+      "metric": "TPR",
+      "correct_prediction": "AI → AI",
+      "correct_percent": 100
+    }
+  ],
+  "human_fpr_percent": 15,
+  "source": "notes/50-파이프라인-현황.md:102–109",
+  "protocol_source": "scripts/news_gate_frozen.py:110–197",
+  "note": "Reported rounded rates only. Exact confusion counts, confidence intervals and an ROC curve are not reconstructed."
+}

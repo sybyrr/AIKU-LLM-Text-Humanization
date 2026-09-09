@@ -1,0 +1,113 @@
+{
+  "source": "human_eval_results_share_20260907.md",
+  "source_sections": [
+    "1. 조사 설계와 응답 현황",
+    "2. 주요 결과"
+  ],
+  "design": {
+    "common_articles": 50,
+    "raters": 4,
+    "versions_per_article": 4,
+    "judgments_per_rater": 50,
+    "total_judgments": 200,
+    "task": "Binary judgment: written by AI or by a human",
+    "one_rater_per_article_version": true
+  },
+  "allocation_diagram": {
+    "illustrative_only": true,
+    "actual_master_allocation_csv_available": false,
+    "example_seed": 20260907,
+    "display_note": "Example rows chosen for visual variety, not evidence of actual rater balance",
+    "rater_column_order": [
+      "R1",
+      "R2",
+      "R3",
+      "R4"
+    ],
+    "shown_article_rows": {
+      "1": [
+        "G2",
+        "Human",
+        "G0",
+        "G1"
+      ],
+      "2": [
+        "G0",
+        "G2",
+        "G1",
+        "Human"
+      ],
+      "3": [
+        "Human",
+        "G0",
+        "G1",
+        "G2"
+      ],
+      "4": [
+        "G0",
+        "Human",
+        "G2",
+        "G1"
+      ],
+      "50": [
+        "G2",
+        "G1",
+        "Human",
+        "G0"
+      ]
+    }
+  },
+  "results": [
+    {
+      "variant": "Human",
+      "judged_human": 35,
+      "n": 50,
+      "human_judgment_percent": 70,
+      "wilson_95_percent": [
+        56.2,
+        80.9
+      ]
+    },
+    {
+      "variant": "G0",
+      "judged_human": 34,
+      "n": 50,
+      "human_judgment_percent": 68,
+      "wilson_95_percent": [
+        54.2,
+        79.2
+      ]
+    },
+    {
+      "variant": "G1",
+      "judged_human": 32,
+      "n": 50,
+      "human_judgment_percent": 64,
+      "wilson_95_percent": [
+        50.1,
+        75.9
+      ]
+    },
+    {
+      "variant": "G2",
+      "judged_human": 29,
+      "n": 50,
+      "human_judgment_percent": 58,
+      "wilson_95_percent": [
+        44.2,
+        70.6
+      ]
+    }
+  ],
+  "notes": [
+    "Allocation cells demonstrate the design; they do not reproduce the missing master_allocation.csv.",
+    "The figure shows example articles 1-4 and 50, with an ellipsis for omitted rows.",
+    "Participants saw blinded document codes and text; version labels and detector scores were hidden.",
+    "G0 denotes original AI text, G1 the first DPOP generator, and G2 the additionally trained generator.",
+    "This measures perceived authorship, not naturalness, factual accuracy, or content preservation directly.",
+    "Reported Wilson binomial 95% intervals are reproduced and independently checked from counts.",
+    "These descriptive per-condition intervals do not account for article pairing or rater clustering.",
+    "Each article/version received one judgment; this design cannot estimate per-document inter-rater agreement.",
+    "No significance test or definitive model ranking is inferred from interval overlap."
+  ]
+}

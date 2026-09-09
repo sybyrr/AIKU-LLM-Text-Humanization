@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StyleBART 도메인 일반화 실험 — 최종 수치 요약</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --paper: #ffffff;
+      --ink: #172033;
+      --muted: #687187;
+      --line: #dde3ee;
+      --blue: #2563eb;
+      --blue-soft: #eaf1ff;
+      --green: #087f5b;
+      --green-soft: #e7f7f0;
+      --amber: #9a6700;
+      --amber-soft: #fff5d6;
+      --red: #c92a2a;
+      --red-soft: #fff0f0;
+      --shadow: 0 14px 34px rgba(25, 42, 70, .08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", system-ui, sans-serif;
+      line-height: 1.55;
+    }
+    main { width: min(1180px, calc(100% - 36px)); margin: 34px auto 70px; }
+    header {
+      color: white;
+      padding: 34px 38px;
+      border-radius: 22px;
+      background: linear-gradient(128deg, #13264d 0%, #174ea6 62%, #2563eb 100%);
+      box-shadow: var(--shadow);
+    }
+    header h1 { margin: 0 0 8px; font-size: clamp(27px, 4vw, 43px); letter-spacing: -.045em; }
+    header p { margin: 0; color: #dce8ff; max-width: 850px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+    .meta span { padding: 5px 10px; border: 1px solid rgba(255,255,255,.25); border-radius: 999px; font-size: 12px; }
+    .notice {
+      margin: 18px 0;
+      padding: 15px 18px;
+      border: 1px solid #f0ce76;
+      border-radius: 14px;
+      color: #664d03;
+      background: var(--amber-soft);
+    }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 18px 0; }
+    .card, section {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+    .card { padding: 18px; }
+    .card .label { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+    .card .value { margin: 7px 0 1px; font-size: 27px; font-weight: 800; letter-spacing: -.03em; }
+    .card .sub { color: var(--muted); font-size: 12px; }
+    section { padding: 26px; margin-top: 18px; }
+    h2 { margin: 0 0 5px; font-size: 23px; letter-spacing: -.025em; }
+    h3 { margin: 24px 0 7px; font-size: 17px; }
+    .lead, .caption { color: var(--muted); }
+    .lead { margin: 0 0 18px; }
+    .caption { margin: 9px 0 0; font-size: 12px; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; background: white; }
+    th, td { padding: 11px 12px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    th:first-child, td:first-child { text-align: left; }
+    th { color: #4f5a70; background: #f7f9fc; font-size: 12px; }
+    tr:last-child td { border-bottom: 0; }
+    tr.flag td { background: #fffaf0; }
+    .good { color: var(--green); font-weight: 750; }
+    .bad { color: var(--red); font-weight: 750; }
+    .warn { color: var(--amber); font-weight: 750; }
+    .pill { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 750; }
+    .pill.good { background: var(--green-soft); }
+    .pill.warn { background: var(--amber-soft); }
+    .pill.bad { background: var(--red-soft); }
+    .pill.info { color: var(--blue); background: var(--blue-soft); }
+    .finding-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 13px; }
+    .finding { padding: 17px; border-radius: 14px; border: 1px solid var(--line); background: #fbfcfe; }
+    .finding strong { display: block; margin-bottom: 5px; }
+    .finding p { margin: 0; color: #4f5a70; font-size: 13px; }
+    .formula {
+      padding: 16px 18px;
+      color: #17366f;
+      background: var(--blue-soft);
+      border-left: 4px solid var(--blue);
+      border-radius: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 14px;
+    }
+    .callout { padding: 17px 19px; border-radius: 14px; background: #f7f9fc; border: 1px solid var(--line); }
+    .callout p { margin: 0; }
+    .gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    figure { margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: #fbfcfe; }
+    figure img { display: block; width: 100%; height: auto; border-radius: 9px; }
+    figcaption { margin-top: 8px; color: var(--muted); font-size: 12px; text-align: center; }
+    .sample-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; }
+    .sample { padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: #fbfcfe; }
+    .sample p { margin: 8px 0 0; color: #4f5a70; font-size: 13px; }
+    .sample .quote { max-height: 138px; overflow: auto; white-space: pre-line; color: var(--ink); background: white; border-radius: 9px; padding: 10px; }
+    ul { margin: 9px 0 0; padding-left: 21px; }
+    li + li { margin-top: 5px; }
+    code { color: #174ea6; background: #eef3fb; padding: 2px 5px; border-radius: 5px; }
+    footer { color: var(--muted); font-size: 12px; margin-top: 20px; text-align: center; }
+    @media (max-width: 850px) {
+      .grid { grid-template-columns: repeat(2, 1fr); }
+      .finding-grid { grid-template-columns: 1fr; }
+      .gallery, .sample-grid { grid-template-columns: 1fr; }
+      header, section { padding: 22px; }
+    }
+    @media print {
+      body { background: white; }
+      main { width: 100%; margin: 0; }
+      header, .card, section { box-shadow: none; break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>StyleBART 도메인 일반화 실험</h1>
+    <p>두 생성기(Qwen·EXAONE) 기반 한국어 humanization 파이프라인의 SFT→DPO 변화와 탐지 회피, 의미 보존, 급성붕괴를 수치 중심으로 정리한다.</p>
+    <div class="meta">
+      <span>기준일 2026-09-07</span>
+      <span>최종 디코딩 plain beam4</span>
+      <span>품질 LLM-as-judge 제외</span>
+      <span>주 지표 Raw ASR</span>
+    </div>
+  </header>
+
+  <div class="notice" id="wiki512-status">
+    <strong>완료:</strong> wiki512B test 전량 1,287편 평가 완료. 3개 shard 429편씩 생성 후 전체 human 95분위 임계로 재집계했다.
+  </div>
+
+  <div class="grid">
+    <div class="card"><div class="label">Flagship</div><div class="value">NEWS</div><div class="sub">D·SCRN 모두 개선, DPO collapse 0.8%</div></div>
+    <div class="card"><div class="label">News raw D ASR</div><div class="value">79.6%</div><div class="sub">SFT 대비 +6.8%p</div></div>
+    <div class="card"><div class="label">News raw SCRN</div><div class="value">71.3%</div><div class="sub">SFT 대비 +8.0%p</div></div>
+    <div class="card"><div class="label">주요 리스크</div><div class="value">EXAONE</div><div class="sub">petition/wiki에서 collapse 집중</div></div>
+  </div>
+
+  <section>
+    <h2>판정 기준</h2>
+    <p class="lead">주 지표는 raw ASR이며 급성붕괴는 별도 안전성 지표로 병기한다.</p>
+    <div class="formula">Primary: Raw ASR = mean(detector pass) &nbsp;|&nbsp; Safety: acute-collapse rate</div>
+    <ul>
+      <li><strong>ASR:</strong> 해당 도메인 human 점수의 95분위 임계에서 사람으로 판정된 비율.</li>
+      <li><strong>급성붕괴:</strong> 공백 제거 문자열에서 동일한 6글자 조각이 20회를 초과해 반복되는 문서.</li>
+      <li><strong>D:</strong> 학습·게이트에 사용한 RoBERTa detector. <strong>SCRN:</strong> 별도의 전이 검증 detector.</li>
+      <li><strong>의미 cosine:</strong> ko-sroberta 문서 임베딩 기준이며 BERTScore가 아니다.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>보수적 참고 — 비붕괴 조건부 ASR</h2>
+    <p class="lead">주 지표가 아니라 detector 통과 출력에서 붕괴를 제외해도 방향이 유지되는지 확인하는 참고치다.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>도메인</th><th>평가 n</th><th>D valid SFT→DPO</th><th>Δ</th><th>SCRN valid SFT→DPO</th><th>Δ</th><th>collapse SFT→DPO</th><th>판정</th></tr></thead>
+        <tbody>
+          <tr><td><strong>news</strong></td><td>2,044</td><td>72.5 → 78.9%</td><td class="good">+6.4</td><td>63.0 → 70.6%</td><td class="good">+7.6</td><td>0.3 → 0.8%</td><td><span class="pill good">성공</span></td></tr>
+          <tr class="flag"><td>essay</td><td>1,022</td><td>46.7 → 46.9%</td><td>+0.2</td><td>40.7 → 39.0%</td><td class="bad">−1.7</td><td>0.4 → 0.9%</td><td><span class="pill bad">효과 없음</span></td></tr>
+          <tr class="flag"><td>persona</td><td>1,117</td><td>39.2 → 53.7%</td><td class="good">+14.5</td><td>56.2 → 67.3%</td><td class="good">+11.1</td><td>0.1 → 0.5%</td><td><span class="pill warn">Qwen 평가</span></td></tr>
+          <tr class="flag"><td>written</td><td>1,057</td><td>14.1 → 23.7%</td><td class="good">+9.6</td><td>—</td><td>—</td><td>0.5 → 0.6%</td><td><span class="pill warn">SCRN 없음</span></td></tr>
+          <tr><td>petition512B</td><td>1,019</td><td>45.6 → 54.3%</td><td class="good">+8.7</td><td>63.2 → 68.9%</td><td class="good">+5.7</td><td>6.5 → 7.4%</td><td><span class="pill info">조건부 성공</span></td></tr>
+          <tr id="wiki512-row"><td>wiki512B</td><td>1,287</td><td>48.0 → 51.3%</td><td class="good">+3.3</td><td>49.3 → 55.0%</td><td class="good">+5.7</td><td>9.5 → 12.5%</td><td><span class="pill info">조건부 성공</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption">essay/persona/written 모델은 현재 혼합 학습 정본이지만, 이 표의 평가 입력과 detector는 Qwen-only다. 세 도메인의 혼합 test 재평가가 필요하다.</p>
+  </section>
+
+  <section>
+    <h2>주 지표 — Raw ASR과 의미 보존</h2>
+    <p class="lead">최종 비교에 사용하는 detector 통과율과 ko-sroberta cosine.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>도메인</th><th>D ASR SFT→DPO</th><th>SCRN ASR SFT→DPO</th><th>cosine SFT→DPO</th></tr></thead>
+        <tbody>
+          <tr><td>news</td><td>72.8 → 79.6%</td><td>63.3 → 71.3%</td><td>.988 → .988</td></tr>
+          <tr><td>essay</td><td>46.9 → 47.2%</td><td>40.8 → 39.2%</td><td>.991 → .991</td></tr>
+          <tr><td>persona</td><td>39.2 → 53.9%</td><td>56.2 → 67.6%</td><td>.994 → .993</td></tr>
+          <tr><td>written</td><td>14.2 → 24.0%</td><td>—</td><td>.992 → .990</td></tr>
+          <tr><td>petition512B</td><td>47.4 → 56.7%</td><td>65.3 → 71.8%</td><td>.977 → .973</td></tr>
+          <tr id="wiki512-raw"><td>wiki512B (n=1,287)</td><td>54.6 → 60.8%</td><td>56.7 → 64.8%</td><td>.976 → .975</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>생성기별 collapse</h2>
+    <p class="lead">전체 평균이 가리는 가장 큰 이질성. 같은 checkpoint에서도 EXAONE 입력에서 붕괴가 집중된다.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>도메인</th><th>EXAONE n</th><th>EXAONE SFT→DPO</th><th>Qwen n</th><th>Qwen SFT→DPO</th><th>DPO 격차</th></tr></thead>
+        <tbody>
+          <tr><td>news</td><td>506</td><td class="warn">1.0 → 2.8%</td><td>1,538</td><td>0.1 → 0.2%</td><td>+2.6%p</td></tr>
+          <tr><td>petition512B</td><td>251</td><td class="bad">20.3 → 22.7%</td><td>768</td><td>2.0 → 2.3%</td><td class="bad">+20.4%p</td></tr>
+          <tr id="wiki512-bygen"><td>wiki512B (n=1,287)</td><td>337</td><td class="bad">23.4 → 31.5%</td><td>950</td><td>4.5 → 5.8%</td><td class="bad">+25.7%p</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>생성기별 pair 차이</h2>
+    <p class="lead">EXAONE rewrite는 Qwen보다 human 원문을 더 강하게 압축하고, 정확한 내용 조각을 덜 보존한다.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>도메인</th><th>AI/H 문자 길이비 EXA</th><th>AI/H 문자 길이비 Qwen</th><th>12자 조각 보존 EXA</th><th>12자 조각 보존 Qwen</th></tr></thead>
+        <tbody>
+          <tr><td>news</td><td>.868</td><td>.961</td><td>.073</td><td>.268</td></tr>
+          <tr><td>petition512B</td><td>.852</td><td>1.020</td><td>.019</td><td>.132</td></tr>
+          <tr><td>essay</td><td>.797</td><td>.958</td><td>.016</td><td>.124</td></tr>
+          <tr><td>persona</td><td>.762</td><td>1.035</td><td>.012</td><td>.245</td></tr>
+          <tr><td>written</td><td>.829</td><td>.958</td><td>.031</td><td>.179</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption">12자 조각 보존은 의미 점수가 아니라 exact-fragment retention 진단값이다. 낮은 값은 더 강한 재구성을 뜻하지만, 그 자체로 의미 훼손을 확정하지 않는다.</p>
+  </section>
+
+  <section>
+    <h2>도메인별 t-SNE</h2>
+    <p class="lead">현재 정본 6개 도메인의 기존 표본 시각화다.</p>
+    <div class="gallery">
+      <figure><img src="../../logs/tsne/final_news.png" alt="news t-SNE"><figcaption>news</figcaption></figure>
+      <figure><img src="../../logs/tsne/final_essay.png" alt="essay t-SNE"><figcaption>essay</figcaption></figure>
+      <figure><img src="../../logs/tsne/final_persona.png" alt="persona t-SNE"><figcaption>persona</figcaption></figure>
+      <figure><img src="../../logs/tsne/final_written.png" alt="written t-SNE"><figcaption>written</figcaption></figure>
+      <figure><img src="../../logs/tsne/final_petition512B.png" alt="petition512B t-SNE"><figcaption>petition512B</figcaption></figure>
+      <figure><img src="../../logs/tsne/final_wiki512B.png" alt="wiki512B t-SNE"><figcaption>wiki512B</figcaption></figure>
+    </div>
+    <p class="caption">t-SNE는 전역 성능 지표가 아니라 표본의 상대적 임베딩 배치를 보는 보조 자료다. ASR 결론은 위 전량 평가표를 기준으로 한다.</p>
+  </section>
+
+  <section>
+    <h2>Persona 정성 사례</h2>
+    <p class="lead">대화 도메인에서 DPO 성공·중립·붕괴를 각각 한 건씩 고른 사례다.</p>
+    <div class="sample-grid">
+      <div class="sample"><span class="pill good">성공 · BP22010420</span><p>D: .890 → .045 · SCRN: .788 → .076 · collapse 없음</p><p class="quote">세차와 텃밭에 관한 긴 대화. DPO가 대화의 내용과 길이를 유지하면서 두 detector 점수를 모두 크게 낮췄다.</p></div>
+      <div class="sample"><span class="pill info">중립 · BP22020336</span><p>D: .641 → .641 · SCRN: .121 → .121 · collapse 없음</p><p class="quote">카나리아와 반려견에 관한 대화. SFT와 DPO 출력이 동일해 preference 학습의 변화가 없는 사례다.</p></div>
+      <div class="sample"><span class="pill bad">실패 · BP22028468</span><p>D: .256 → .584 · SCRN: .351 → .868 · DPO collapse</p><p class="quote">A: 아, 제가 B:: 제가 B::: 제가 B::::::::::::::::…</p><p>DPO 출력이 대화 중간 반복 루프에 진입하며 detector 점수도 함께 악화됐다.</p></div>
+    </div>
+    <p class="caption">전체 원문과 출력은 <code>/workspace/logs/reeval/eval_persona.jsonl</code>의 동일 doc_id에서 확인할 수 있다.</p>
+  </section>
+
+  <section>
+    <h2>확정된 해석</h2>
+    <div class="finding-grid">
+      <div class="finding"><strong>01 · News flagship 성공</strong><p>D와 SCRN의 raw ASR이 각각 +6.8%p, +8.0%p 상승하고 DPO collapse는 0.8%에 그친다.</p></div>
+      <div class="finding"><strong>02 · 단순 길이 원인 기각</strong><p>petition512B 붕괴 출력 47편 중 45편이 첫 512토큰 안에서 이미 붕괴했다. 반복 시작 중앙값은 약 320토큰이다.</p></div>
+      <div class="finding"><strong>03 · 생성기×도메인 상호작용</strong><p>petition/wiki의 EXAONE 조건에서 collapse가 Qwen보다 5~10배 높다. 입력 x_ai 자체의 급성붕괴는 거의 없다.</p></div>
+      <div class="finding"><strong>04 · DPO 효과는 collapse를 빼도 존재</strong><p>petition/wiki에서도 Valid ASR 개선이 남는다. 다만 DPO는 모든 주요 실험에서 collapse를 소폭 증가시킨다.</p></div>
+      <div class="finding"><strong>05 · 가장 유력한 모델 설명</strong><p>강하게 압축·재구성된 EXAONE 입력을 작은 StyleBART가 긴 human target으로 역변환할 때 조건부 생성 불안정성이 커진다.</p></div>
+      <div class="finding"><strong>06 · no-repeat는 부차적 요인</strong><p>채굴 제약은 SFT 붕괴의 원인이 아니다. DPO가 기존 붕괴를 학습·교정하지 못한 이유를 설명하는 한계로 보는 것이 타당하다.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>평가 범위와 해석 제한</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>도메인</th><th>모델 학습 pair</th><th>평가 입력</th><th>Detector</th><th>상태</th></tr></thead>
+        <tbody>
+          <tr><td>news</td><td>Qwen+EXAONE</td><td>혼합 전량</td><td>두 생성기 반영</td><td><span class="pill good">완료</span></td></tr>
+          <tr><td>essay/persona/written</td><td>현재 혼합</td><td>Qwen-only 전량</td><td>Qwen-only frozen</td><td><span class="pill warn">생성기 제한</span></td></tr>
+          
+          <tr><td>petition512B</td><td>Qwen+EXAONE</td><td>혼합 전량</td><td>두 생성기 반영</td><td><span class="pill good">완료</span></td></tr>
+          <tr id="wiki512-coverage"><td>wiki512B</td><td>Qwen+EXAONE</td><td>혼합 전량 n=1,287</td><td>두 생성기 반영</td><td><span class="pill good">완료</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul>
+      <li>LLM-as-judge 품질 평가는 judge 모델별 편차가 커 최종 평가에서 제외했다.</li>
+      <li>현재 의미 cosine은 입력을 256토큰으로 절단하므로 장문 전체 의미 보존을 대표하지 않는다.</li>
+      <li>essay/persona/written의 두 생성기 통합 성능을 주장하려면 현재 혼합 test 평가가 추가로 필요하다.</li>
+      <li>written은 독립 SCRN 결과가 없어 detector 전이 성공을 확정할 수 없다.</li>
+      <li>기존 5×5 교차도메인 평가는 과거 모델·데이터의 조합당 n=100 pilot이다. 현재 6개 정본 모델의 최종 결과로 합치지 않았다.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>최종 요약</h2>
+    <div class="callout">
+      <p><strong>News에서는 DPO가 안정적으로 성공했다.</strong> Petition/wiki에서도 비붕괴 ASR 개선은 확인됐지만, EXAONE pair에서 StyleBART 반복 붕괴가 집중된다. 이 현상은 길이나 split 차이로 설명되지 않으며, EXAONE의 강한 압축·재구성과 StyleBART의 조건부 생성 안정성 사이의 상호작용이 가장 유력하다. DPO hard-negative의 no-repeat 제약은 주원인이 아니라 기존 붕괴를 교정하지 못하게 한 부차적 한계로 정리한다.</p>
+    </div>
+  </section>
+
+  <footer>로컬 실험 산출물 기반 정적 보고서 · 원본 결과: /workspace/logs/reeval 및 /workspace/logs/b512</footer>
+</main>
+</body>
+</html>
