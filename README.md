@@ -29,6 +29,7 @@ human_pool.jsonl
 ```text
 pipeline/                 정본 설정, 오케스트레이터, 최종평가, 반복 지표
 pipeline/configs/         공개 가능한 도메인 설정 예시
+baselines/                프롬프트 기준선 명세, 고정 프롬프트, 설정 예시
 scripts/                  정본 단계 구현과 과거 연구용 도구
 loop/                     별도 generator↔detector 반복학습 실험
 notes/                    실험 설계·결과·시행착오 기록
@@ -128,6 +129,19 @@ python pipeline/run.py \
 collapse는 raw ASR에서 차감하지 않고 별도로 보고합니다. LLM-as-judge 품질 점수는
 모델별 편차가 커 정본 평가에서 제외합니다. 평가기는 문서별 JSONL과 집계
 `*.summary.json`을 함께 저장합니다.
+
+## Prompt baseline and zero-shot detectors
+
+학습을 사용하지 않는 비교군으로 Humanizer-skill 프롬프팅 기준선을 평가합니다. 같은
+held-out `x_ai`를 기존 SFT, 기존 DPO, Humanizer-skill 프롬프트에 각각 독립적으로
+입력합니다. 프롬프트 출력에 SFT나 DPO를 다시 적용하지 않습니다.
+
+Binoculars와 FastDetectGPT는 도메인 탐지기 학습에 사용하지 않은 zero-shot 평가기입니다.
+6×6 크로스도메인 전량과 Humanizer-skill 표본에 같은 target별 FPR 5% 기준을 적용합니다.
+분산 채점 결과는 한 행씩 저장되며, 중단 시 완료된 행 다음부터 재개할 수 있습니다.
+
+실험 조건, 파일럿 게이트, 실행 방법과 외부 프롬프트 출처는
+[baselines/README.md](baselines/README.md)에 정리되어 있습니다.
 
 ## CPU checks
 
