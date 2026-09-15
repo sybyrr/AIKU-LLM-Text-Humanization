@@ -17,14 +17,14 @@
 파일 순서대로 결정론적으로 뽑으므로 몇 번을 돌려도 같은 결과가 나온다.
 
 사용:
-    python mash_extract_pool.py --n 10  --out ../dataset/human/mash_pilot_10.jsonl
-    python mash_extract_pool.py --n 3100 --out ../dataset/human/mash_pool.jsonl
+    python scripts/mash_extract_pool.py --corpus /path/to/NIKLNEWSPAPER_2022_v1.0_JSON.zip \
+        --n 24500 --out dataset/news_track/human_pool.jsonl
 """
 import argparse, json, pathlib, re, sys, zipfile
 from collections import defaultdict, OrderedDict
 from concurrent.futures import ProcessPoolExecutor
 
-ZIP = "/shared/corpus/raw/NIKLNEWSPAPER_2022_v1.0_JSON.zip"
+ZIP = pathlib.Path(__file__).resolve().parents[1] / "corpus/raw/NIKLNEWSPAPER_2022_v1.0_JSON.zip"
 TOPICS = ["정치", "경제", "사회", "IT/과학", "문화"]
 
 # 직접 인용. 여는 따옴표와 닫는 따옴표가 짝을 이루는 구간만 센다.
@@ -51,8 +51,8 @@ def scan(task):
     per_stratum 을 전역으로 두면 워커 프로세스에 전달되는지가 start method 에 따라
     달라지므로 인자로 함께 넘긴다.
     """
-    name, per_stratum = task
-    doc = json.loads(zipfile.ZipFile(ZIP).read(name))
+    archive, name, per_stratum = task
+    doc = json.loads(zipfile.ZipFile(archive).read(name))
     out = defaultdict(list)
     for d in doc["document"]:
         paras = d["paragraph"]
@@ -131,6 +131,8 @@ def pick(pool, n):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--corpus", type=pathlib.Path, default=ZIP,
+                    help="승인받아 내려받은 국립국어원 신문 2022판 JSON ZIP 경로")
     ap.add_argument("--n", type=int, default=10)
     ap.add_argument("--out", required=True)
     ap.add_argument("--workers", type=int, default=8)
@@ -152,10 +154,10 @@ def main():
         exclude = {e[5:] if e.startswith("news-") else e for e in raw}
         print(f"제외 대상 {len(exclude):,}편 로드 (news- 접두어 정규화)", file=sys.stderr)
 
-    names = [n for n in zipfile.ZipFile(ZIP).namelist() if n.endswith(".json")]
+    names = [n for n in zipfile.ZipFile(args.corpus).namelist() if n.endswith(".json")]
     pool = defaultdict(list)
     with ProcessPoolExecutor(max_workers=args.workers) as ex:
-        for part in ex.map(scan, [(n, per_stratum) for n in names]):
+        for part in ex.map(scan, [(args.corpus, n, per_stratum) for n in names]):
             for k, v in part.items():
                 pool[k].extend([r for r in v if r["doc_id"] not in exclude])
     print(f"조건 통과 후보 {sum(len(v) for v in pool.values()):,}편 / 층 {len(pool):,}개"

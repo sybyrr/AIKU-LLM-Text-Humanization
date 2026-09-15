@@ -1,57 +1,183 @@
-# AIKU Korean LLM Text Humanization
+# 너 정말 핵심을 찔렀어 — Korean Text Humanization
 
-한국어 AI 생성문을 사람 문체로 재서술하는 StyleBART 기반 연구 파이프라인입니다.
-도메인별 탐지기로 학습 pair를 구성하고 SFT와 DPOP를 거친 뒤 held-out test에서
-탐지 회피와 반복 붕괴를 평가합니다.
+📢 2026년 여름학기 [AIKU](https://github.com/AIKU-Official) 활동으로 진행한 프로젝트입니다.
 
-> 이 저장소에는 코드와 문서만 포함합니다. 인간 원문, 생성문, checkpoint, 평가 로그와
-> 검수 HTML은 저작권·데이터 이용약관 때문에 배포하지 않습니다.
+🏆 2026년 여름 AIKU 프로젝트 **2등 수상**
 
-## Canonical pipeline
+## 소개
+
+AI가 작성한 한국어 글을 받아 **내용을 유지하면서 사람이 쓴 글처럼 다시 쓰는 generator**를 개발하는 프로젝트입니다.
+[MASH](https://arxiv.org/abs/2601.08564)를 바탕으로 한국어 데이터와 KoBART를 사용하고, Style-injection SFT 이후 DPOP로 detector 회피를 학습했습니다.
+
+사람다운 문체를 측정하기 위한 proxy로 별도 학습한 detector의 판정을 사용했습니다.
+뉴스를 중심으로 방법을 구축한 뒤 6개 도메인 전이, prompting baseline, 강화된 detector를 활용한 추가 학습, 블라인드 사람 평가로 효과와 한계를 확인했습니다.
+
+뉴스 test 2,044편에서 DPOP generator는 **RoBERTa ASR 79.6%, SCRN ASR 71.3%, 의미 cosine 0.988**을 기록했습니다.
+
+## 방법론
+
+| 단계 | 핵심 내용 |
+|---|---|
+| **1. Inverse Data Construction** | 인간 원문을 Qwen3-8B·EXAONE-3.5-7.8B로 재작성해 Human–AI pair 구축 |
+| **2. Detector 학습 및 검증** | KLUE-RoBERTa를 이진 분류기로 학습·검증하고, 인간 원문과 AI 글을 올바르게 구분하는 pair 선별 |
+| **3. Style-injection SFT** | KoBART에 AI/Human style vector와 공유 fusion layer를 추가해 입력 복원과 인간 문체 변환을 함께 학습 |
+| **4. DPOP alignment** | 인간 원문을 chosen, detector에 탐지된 SFT 출력을 rejected로 삼아 추가 학습 |
+| **5. Evaluation** | ASR·의미 유사도·붕괴율, prompting baseline, t-SNE, 6×6 도메인 전이 평가 |
+| **6. Adversarial alignment** | G1 출력에 적응한 D1을 학습하고, D1이 탐지한 후보로 G2를 추가 학습 |
 
 ```text
-human_pool.jsonl
-  → P3b 공통 프롬프트
-  → Qwen·EXAONE 재서술
-  → frozen domain detector gate
-  → StyleBART SFT
-  → hard-negative mining
-  → DPOP
-  → held-out test plain-beam evaluation
+인간 원문 ── LLM 재작성 ── Human–AI pair
+                              │
+                    detector 검증·pair 선별
+                              │
+                       Style-injection SFT
+                              │
+                      hard negative → DPOP
+                              │
+                         generator G1
+                         ├── 평가·도메인 전이
+                         └── D1 학습 → 추가 DPOP → G2
+                                                  │
+                                 G1/G2 비교·사람 평가
 ```
 
-현재 정본은 [pipeline/README.md](pipeline/README.md)에 정의되어 있습니다.
-`loop/`는 generator와 detector를 반복 재학습하는 별도 실험이며 위 정본 파이프라인과
-설정이나 결과를 합치지 않습니다.
+- **Generator:** [gogamza/kobart-base-v2](https://huggingface.co/gogamza/kobart-base-v2) 기반 약 0.1B 모델.
+- **학습에 활용한 detector:** [klue/roberta-base](https://huggingface.co/klue/roberta-base). Generator 학습에는 내부 파라미터·gradient 대신 후보의 detector 점수를 사용합니다.
+- **별도 평가 detector:** KoELECTRA 기반 SCRN 구현. Generator의 preference 구성에는 사용하지 않습니다.
+- **MASH와의 주요 차이:** 한국어 데이터·모델 적용, 길이 정규화 DPOP 사용, 별도 adversarial alignment 및 사람 평가. 논문의 inference-time refinement(Stage 4)는 적용하지 않았습니다.
 
-## Repository layout
+모델 구조와 loss는 [방법론](docs/methodology.md), 데이터 출처와 분할은 [데이터 구성](docs/data.md)에 설명했습니다.
 
-```text
-pipeline/                 정본 설정, 오케스트레이터, 최종평가, 반복 지표
-pipeline/configs/         공개 가능한 도메인 설정 예시
-baselines/                프롬프트 기준선 명세, 고정 프롬프트, 설정 예시
-scripts/                  정본 단계 구현과 과거 연구용 도구
-loop/                     별도 generator↔detector 반복학습 실험
-notes/                    실험 설계·결과·시행착오 기록
-mash/                     데이터셋 및 프롬프트 명세
-```
+## 실험 결과
 
-정본 단계 구현은 다음 파일입니다.
+### 평가 질문과 조건
 
-- `scripts/build_domain_prompts.py`
-- `scripts/generate.py`
-- `scripts/domain_gate.py`
-- `scripts/stage2_sft.py`
-- `scripts/stage3_build_dpo.py`
-- `scripts/stage3_dpo.py`
-- `pipeline/evaluate.py`
+| 질문 | 실험 |
+|---|---|
+| RQ1. 내용을 보존하면서 detector를 회피할 수 있는가? | 뉴스 test, prompting baseline, t-SNE |
+| RQ2. 다른 도메인에도 회피 성능이 전이되는가? | 6개 source × 6개 target의 SFT/DPOP 평가 |
+| RQ3. 강화된 detector를 활용한 추가 학습이 성능을 높이는가? | 뉴스 G1→D1→G2 추가 학습 |
+| RQ4. 회피 학습이 사람 글로 판단되는 비율도 높이는가? | 4명이 50개 기사의 Human/G0/G1/G2를 블라인드 판별 |
 
-그 밖의 t-SNE, cross-domain, LLM judge, HTML 검수 코드는 분석·실험 도구이며 정본
-학습 경로에 자동으로 들어가지 않습니다.
+**ASR(Attack Success Rate)**은 전체 generator 출력 중 detector가 인간 글로 판정한 비율입니다.
+주 실험에서는 각 detector의 인간 원문 점수 95백분위를 임계값으로 사용합니다.
+반복 붕괴 출력도 raw ASR의 분모·분자에 포함될 수 있으므로 붕괴율을 별도로 보고합니다.
+의미 cosine은 입력 AI 글과 출력의 임베딩 유사도이며, 임베딩 입력은 최대 256 token입니다.
 
-## Environment
+### 1. 뉴스 주 실험
 
-Python 3.10 이상과 CUDA 환경이 필요합니다. GPU에 맞는 PyTorch를 먼저 설치한 뒤:
+원천 뉴스 24,500편에서 detector 학습 문서를 제외하고 pair 선별·중복 제거를 거쳐 **20,343쌍**을 구성했습니다.
+Generator split은 train **16,266**, dev **2,033**, test **2,044**입니다.
+
+| 모델 | RoBERTa ASR ↑ | SCRN ASR ↑ | 의미 cosine ↑ | 붕괴율 ↓ |
+|---|---:|---:|---:|---:|
+| SFT | 72.8% | 63.3% | 0.988 | 0.3% |
+| **SFT + DPOP** | **79.6%** | **71.3%** | **0.988** | 0.8% |
+
+DPOP 이후 두 detector에 대한 ASR이 높아졌고 의미 cosine은 유지됐습니다. 붕괴율은 0.5%p 증가했습니다.
+
+![뉴스 주 실험](results/figures/news_main_results.png)
+
+[집계 수치·조건](results/metrics/news_main_results.json)
+
+뉴스 test 중 200개 기사 ID의 Human·AI·SFT·DPOP 텍스트에서 RoBERTa CLS 표현을 추출해 t-SNE로 시각화했습니다.
+SFT·DPOP 출력이 인간 원문과 겹치는 영역을 보였지만, 이는 detector의 표현 공간에 대한 보조 결과입니다.
+
+![뉴스 test의 RoBERTa 표현 t-SNE](results/figures/news_tsne_original.png)
+
+### 2. Prompting baseline
+
+[DaleSeo/korean-skills](https://github.com/DaleSeo/korean-skills)의 humanizer v1.6.0을 배치 재작성 프롬프트로 변환해 사용했습니다.
+원본 AI 글의 생성 모델 계열에 맞춰 Qwen3-8B 또는 EXAONE-3.5-7.8B로 다시 작성했습니다.
+세 방법에 **동일한 뉴스 100편**을 입력해 비교했습니다.
+
+| 방법 | RoBERTa ASR ↑ | SCRN ASR ↑ | 의미 cosine ↑ | 붕괴율 ↓ |
+|---|---:|---:|---:|---:|
+| Prompting baseline | 0.0% | 0.0% | 0.996 | 0.0% |
+| SFT | 73.0% | 63.0% | 0.989 | 0.0% |
+| SFT + DPOP | 78.0% | 66.0% | 0.989 | 1.0% |
+
+사용한 prompting baseline은 높은 의미 유사도를 유지했지만 detector 회피 효과는 나타나지 않았습니다.
+
+[Baseline 명세·출처](baselines/README.md) · [6개 도메인 보고서](results/reports/humanizer_skill_baseline_n100_20260909.html)
+
+### 3. Cross-domain evaluation
+
+News, Essay, Persona, Written, Petition, Wiki에서 각각 학습한 SFT·DPOP generator를 각 target의 test 전체에 적용했습니다.
+Petition·Wiki는 `petition512B`·`wiki512B` 트랙을 사용했습니다.
+
+| Detector | 모델 | 같은 도메인 평균 ASR | 다른 도메인 평균 ASR |
+|---|---|---:|---:|
+| RoBERTa | SFT | 45.9% | 12.2% |
+| RoBERTa | DPOP | 53.7% | 15.2% |
+| SCRN | SFT | 54.9% | 22.0% |
+| SCRN | DPOP | 62.5% | 26.2% |
+
+평균은 같은 도메인 6조합, 다른 도메인 30조합에 각각 동일 가중치를 부여한 값입니다.
+DPOP의 평균 ASR은 향상됐으나 다른 도메인으로 전이할 때 성능이 크게 낮아졌습니다.
+일부 조합에는 반복 붕괴도 많아 raw ASR만으로 성공적인 변환이라 판단하기 어렵습니다.
+
+![교차도메인 DPOP ASR](results/figures/cross_domain_heatmap.png)
+
+[36조합 전량 보고서](results/reports/cross_domain_current6_full_20260909.html) · [집계 JSON](results/metrics/cross_domain_results.json)
+
+### 4. Adversarial alignment
+
+기존 G1의 출력을 학습해 D1을 만든 뒤, D1에 탐지된 후보를 이용해 G2를 추가 학습했습니다.
+**별도 뉴스 test 1,985편**을 사용했으며, 데이터 버전과 decoding 조건이 주 실험과 다릅니다.
+
+| Detector | G1 ASR | G2 ASR |
+|---|---:|---:|
+| D0 — 기존 detector | 93.90% | 92.64% |
+| D1 — G1 출력에 적응한 detector | 3.38% | 3.93% |
+| CopyKiller — 외부 평가 | 97.03% | 97.83% |
+
+D1은 G1 출력을 훨씬 잘 탐지했습니다. 추가 DPOP의 효과는 D1·CopyKiller에서 소폭 개선, D0에서는 감소로 나타났습니다.
+CopyKiller는 AI 작성률 50%를 기준으로 판정했으며 generator 학습에는 사용하지 않았습니다.
+
+![추가 DPOP 비교](results/figures/adversarial_generator_comparison.png)
+
+[추가 학습 방법](docs/adversarial_alignment.md) · [실행 방법](adversarial/README.md) · [상세 결과](adversarial/RESULTS.md)
+
+### 5. 사람 평가
+
+50개 기사마다 Human·원본 AI(G0)·G1·G2의 네 버전을 준비하고, 평가자 4명이 기사별로 서로 다른 버전을 판별했습니다.
+총 200건, 버전별 50건의 판단입니다.
+
+| 실제 버전 | 사람이 쓴 글로 판단한 비율 |
+|---|---:|
+| Human | 70% |
+| G0 | 68% |
+| G1 | 64% |
+| G2 | 58% |
+
+G1·G2의 사람 글 판단율은 원본 AI보다 낮았습니다.
+다만 버전별 표본이 50건이고 각 기사·버전을 한 명만 평가했으므로 모델 간 차이를 해석하는 데 한계가 있습니다.
+이 설문은 작성 주체에 대한 판단을 측정했으며, 자연스러움과 내용 보존은 별도로 평가할 필요가 있습니다.
+
+![사람 평가](results/figures/human_evaluation_results.png)
+
+[사람 평가 보고서](results/reports/human_eval_results_share_20260907.md)
+
+## Contribution & Limitations
+
+**Contribution**
+
+- 한국어 Human–AI pair 구축부터 Style-SFT·DPOP·평가까지 연결한 실험 파이프라인을 구현했습니다.
+- 약 0.1B의 소형 generator로 높은 detector 회피율과 입력 대비 의미 유사도를 확인했습니다.
+- Detector의 출력 점수로 preference를 구성해, generator 최적화에 detector 내부 구조·파라미터·gradient가 필요하지 않은 학습 방식을 적용했습니다.
+
+**Limitations**
+
+- 다른 도메인으로의 전이와 강화된 detector를 활용한 추가 학습의 효과가 제한적이었습니다.
+- 일부 조건에서 반복 붕괴가 증가했습니다. 높은 ASR·cosine만으로 자연스러움과 사실 보존을 보장할 수 없습니다.
+- MASH의 inference-time refinement는 적용하지 못했습니다. LLM에 따라 자연스러움 평가가 달라 후처리의 품질 개선 효과를 판단할 일관된 기준을 마련하는 데 어려움이 있었습니다.
+- 사람 평가에서 인간다움의 향상을 확인하지 못했습니다. 더 많은 평가자와 자연스러움·의미 보존의 직접 평가가 필요합니다.
+
+## 환경 설정
+
+Python 3.10 이상을 기준으로 합니다. 모델 학습·추론에는 CUDA GPU와 각 단계의 데이터·checkpoint가 필요합니다.
+GPU에 맞는 PyTorch를 준비한 뒤 나머지 의존성을 설치합니다.
 
 ```bash
 python3 -m venv .venv
@@ -59,200 +185,57 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-생성 단계는 OpenAI-compatible `/v1/chat/completions` endpoint를 사용합니다.
-Qwen과 EXAONE 서버 주소는 설정 파일에 각각 지정합니다.
+AI pair 생성은 Qwen·EXAONE의 OpenAI-compatible API endpoint를 사용합니다.
+API 주소와 데이터·모델 경로는 설정 파일에 지정합니다.
+주 파이프라인과 adversarial 실험은 Transformers 버전이 달라 **별도 가상환경**을 사용합니다.
+Adversarial 실험의 환경 설정과 실행 명령은 [별도 실행 안내](adversarial/README.md)에 있습니다.
 
-## Input
+## 사용 방법
 
-도메인별 `human_pool.jsonl`의 최소 스키마는 다음과 같습니다.
+### 저장소 구조
 
-```json
-{"doc_id":"unique-id","text":"사람이 작성한 원문","n_char":934}
+```text
+pipeline/              전체 파이프라인 실행·설정·평가
+scripts/               원천 데이터 처리·SFT·DPOP·detector·baseline
+  figures/             집계 결과를 그래프로 변환
+baselines/             prompting baseline 설정·프롬프트·라이선스
+adversarial/           G1 → D1 → G2 추가 학습·평가
+docs/                  방법론·데이터·재현 안내
+results/
+  reports/             최종 집계 보고서
+  metrics/             그래프 입력·출처·평가 조건
+  figures/             결과 그래프
 ```
 
-본문은 `text`, `body`, `human_text` 중 하나를 사용할 수 있습니다. 동일 논제·도서·대화가
-train/test에 함께 들어가면 안 되는 도메인은 그룹 필드를 추가하고 `gate.split_key`로
-지정합니다. 대화 데이터는 `n_turn`과 `gate.dialogue=true`를 사용합니다.
+학습·평가에 필요한 데이터와 모델 가중치는 별도로 준비해야 합니다. [데이터 준비](docs/data.md)
 
-## Run
+### 파이프라인 실행
 
-신문 플래그십 설정을 복사해 비공개 경로와 생성 서버 주소를 수정합니다.
+설정 파일에 데이터·모델 경로와 Qwen·EXAONE 서버 주소를 지정합니다.
 
 ```bash
-cp pipeline/configs/news.example.json pipeline/config.news.json
+cp pipeline/configs/news.example.json pipeline/configs/news.local.json
 
-python pipeline/run.py \
-  --config pipeline/config.news.json \
-  --gpu 0 \
-  --dry-run
-
-python pipeline/run.py \
-  --config pipeline/config.news.json \
-  --gpu 0
+python pipeline/run.py --config pipeline/configs/news.local.json --gpu 0
 ```
 
-개별 단계만 실행할 수 있습니다.
+데이터 병합, 단계별 학습, checkpoint 평가 명령은 [실행 안내](docs/reproduction.md)에 있습니다.
+
+### 결과 그래프
+
+`results/metrics/`의 집계 수치와 보고서로 그래프를 생성합니다.
 
 ```bash
-python pipeline/run.py \
-  --config pipeline/config.news.json \
-  --gpu 0 \
-  --from-stage sft \
-  --to-stage evaluate
+python scripts/figures/build_main_results.py
+python scripts/figures/build_cross_domain.py
+python scripts/figures/build_human_evaluation.py
 ```
 
-기본 실행은 완료 산출물을 검증하고 이어서 실행합니다. 로그와 상태 파일은
-`logs/{domain}/pipeline/`에 기록됩니다. 로컬 설정, 데이터, 모델과 로그는 `.gitignore`
-대상입니다.
+전체 결과와 그래프 생성 명령은 [결과 자료](results/README.md)에 있습니다.
 
-## Canonical settings
+## 참고자료
 
-| 단계 | 설정 |
-| --- | --- |
-| SFT | ko-BART, concat→projection fusion, target EOS, max length 512, λ=0.5, 3 epochs |
-| Hard negative | SFT sampling, D score > τ, 4 candidates, 기존 재현값 `no_repeat_ngram_size=3` |
-| DPO | length normalization, β=2, DPOP λ=5, 1 epoch, effective batch 16 |
-| Final generation | plain beam4, input max 512, output max 1024, 반복방지 옵션 없음 |
-
-`hard_negative.no_repeat_ngram_size=0`은 붕괴 출력도 rejected 후보로 노출하는 별도
-실험 조건입니다. 기존 결과를 재현할 때는 기본값 3을 유지합니다.
-
-## Evaluation
-
-최종평가는 pair 파일의 test split만 사용합니다.
-
-- 주 지표: 도메인 인간 원문 P(AI)의 95분위 임계에서 raw ASR
-- 안전성: 공백 제거 문자 6-gram이 20회를 초과해 반복되는 급성붕괴율
-- 의미 보존: ko-sroberta cosine
-- 선택 평가: 동일 detector split으로 학습한 SCRN
-
-collapse는 raw ASR에서 차감하지 않고 별도로 보고합니다. LLM-as-judge 품질 점수는
-모델별 편차가 커 정본 평가에서 제외합니다. 평가기는 문서별 JSONL과 집계
-`*.summary.json`을 함께 저장합니다.
-
-## Prompt baseline and zero-shot detectors
-
-학습을 사용하지 않는 비교군으로 Humanizer-skill 프롬프팅 기준선을 평가합니다. 같은
-held-out `x_ai`를 기존 SFT, 기존 DPO, Humanizer-skill 프롬프트에 각각 독립적으로
-입력합니다. 프롬프트 출력에 SFT나 DPO를 다시 적용하지 않습니다.
-
-Binoculars와 FastDetectGPT는 도메인 탐지기 학습에 사용하지 않은 zero-shot 평가기입니다.
-6×6 크로스도메인 전량과 Humanizer-skill 표본에 같은 target별 FPR 5% 기준을 적용합니다.
-분산 채점 결과는 한 행씩 저장되며, 중단 시 완료된 행 다음부터 재개할 수 있습니다.
-
-실험 조건, 파일럿 게이트, 실행 방법과 외부 프롬프트 출처는
-[baselines/README.md](baselines/README.md)에 정리되어 있습니다.
-
-## CPU checks
-
-GPU를 쓰지 않고 설정과 command graph, 재개 판정, 표본 추출 및 반복 지표를 검사합니다.
-
-```bash
-python -m compileall -q pipeline scripts
-python -m unittest discover -s pipeline/tests -v
-python pipeline/run.py --config pipeline/configs/news.example.json --dry-run
-```
-
-## Results
-
-아래에는 공개 가능한 도메인의 **집계 결과만** 제시합니다. 데이터 이용 조건을 준수하기 위해
-원문, 생성문, 문서 식별자, 문서별 점수와 검수 자료는 공개하지 않습니다.
-
-- 공개 대상: `essay`, `persona`, `petition`, `wiki`
-- 공개 보류: `news`, `written` — 국립국어원 말뭉치 결과물의 공개 절차를 확인한 뒤 공개 여부를 결정합니다.
-- 비교 제외: KCI 논문 초록 Stage 0 — 아래의 SFT/DPO 실험과 평가 조건이 다릅니다.
-
-### Data
-
-`pair`는 도메인 탐지기 게이트를 통과한 인간 원문–AI 재서술 쌍의 수를 의미합니다.
-
-| domain | source | pair | train | dev | test | evaluation input |
-| --- | --- | ---: | ---: | ---: | ---: | --- |
-| essay | [AI Hub 에세이 글 평가 데이터](https://www.aihub.or.kr/aihubdata/data/view.do?aihubDataSe=data&currMenu=115&topMenu=100&dataSetSn=545) | 6,795 | 4,750 | 1,023 | 1,022 | Qwen |
-| persona | [AI Hub 페르소나 대화](https://www.aihub.or.kr/aihubdata/data/view.do?aihubDataSe=data&currMenu=115&topMenu=100&dataSetSn=71302) | 11,169 | 8,935 | 1,117 | 1,117 | Qwen |
-| petition | [Blue House National Petition](https://huggingface.co/datasets/dev7halo/bluehouse-national-petition) | 24,252 | 19,401 | 2,425 | 2,426 | Qwen + EXAONE |
-| wiki | [Korean Wikipedia, 20231101.ko](https://huggingface.co/datasets/wikimedia/wikipedia) | 23,429 | 18,743 | 2,343 | 2,343 | Qwen + EXAONE |
-
-essay와 persona 모델은 Qwen과 EXAONE으로 생성한 pair를 약 75:25 비율로 혼합하여 학습했습니다.
-다만 모델 간 입력 조건을 동일하게 유지하기 위해 평가는 기존 Qwen test split 전체에서
-수행했습니다. petition과 wiki는 확장된 혼합 pair의 held-out test split을 사용했습니다.
-
-### Evaluation protocol
-
-- 평가일: 2026-09-07
-- 범위: 각 도메인의 held-out test split 전체
-- 생성: beam search(`num_beams=4`), 입력 최대 512 token, 출력 최대 1,024 token, 반복 억제 옵션 미적용
-- `D`: 데이터 게이트와 DPO 보상에 사용한 도메인별 KLUE-RoBERTa 탐지기
-- `SCRN`: 동일한 detector split으로 별도 학습한 KoELECTRA 기반 검증 탐지기
-- `ASR`: 해당 도메인의 인간 원문 점수 95분위를 임계값으로 적용했을 때 인간으로 판정된 비율
-- `P(AI)`: 탐지기가 산출한 AI 확률의 평균입니다. 값이 낮을수록 인간 문서에 가깝게 판정됩니다.
-- `cos`: ko-sroberta cosine(output, x_ai)입니다. 높은 값은 의미 보존뿐 아니라 입력 복사의 영향도 받을 수 있습니다.
-- `acute`: 공백 제거 후 동일 문자 6-gram이 20회를 초과해 반복된 문서의 비율
-
-### Detector calibration
-
-ASR을 해석하기에 앞서 각 탐지기가 인간 원문과 AI 재서술문을 구분하는지 확인했습니다.
-
-| domain | D human P(AI) | D x_ai P(AI) | SCRN human P(AI) | SCRN x_ai P(AI) |
-| --- | ---: | ---: | ---: | ---: |
-| essay | 0.006 | 0.996 | 0.049 | 0.986 |
-| persona | 0.172 | 0.963 | 0.101 | 0.754 |
-| petition | 0.009 | 0.979 | 0.019 | 0.976 |
-| wiki | 0.031 | 0.993 | 0.036 | 0.983 |
-
-모든 공개 도메인에서 두 탐지기 모두 human과 x_ai의 평균 `P(AI)` 격차가 0.4를 넘었습니다.
-
-### SFT and DPO
-
-| domain | model | D ASR | D P(AI) | SCRN ASR | SCRN P(AI) | cos | acute |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| essay | SFT | 46.9% | 0.313 | 40.8% | 0.544 | 0.991 | 0.4% |
-| essay | DPO | 47.2% | 0.323 | 39.2% | 0.558 | 0.991 | 0.9% |
-| persona | SFT | 39.2% | 0.543 | 56.2% | 0.346 | 0.994 | 0.1% |
-| persona | DPO | 53.9% | 0.450 | 67.6% | 0.269 | 0.993 | 0.5% |
-| petition | SFT | 59.6% | 0.233 | 62.1% | 0.227 | 0.979 | 4.7% |
-| petition | DPO | 62.9% | 0.213 | 65.3% | 0.198 | 0.976 | 5.5% |
-| wiki | SFT | 52.8% | 0.390 | 65.2% | 0.285 | 0.978 | 7.3% |
-| wiki | DPO | 68.6% | 0.252 | 77.9% | 0.175 | 0.977 | 9.4% |
-
-`D`는 데이터 게이트와 DPO 최적화에 사용되었으므로 독립적인 일반화 성능을 나타내지 않습니다.
-따라서 결과를 해석할 때는 별도로 학습한 `SCRN`의 측정값을 함께 고려해야 합니다. petition과
-wiki의 DPO 모델은 ASR이 향상된 동시에 acute 비율도 각각 5.5%, 9.4%로 증가했습니다. 생성 품질은
-탐지 회피율만으로 판단하지 않았으며, acute는 ASR에서 차감하지 않고 별도의 안전성 지표로
-보고했습니다.
-
-### Summary
-
-- essay에서는 SFT와 DPO의 차이가 작았으며, `SCRN ASR`은 DPO에서 1.6%p 감소했습니다.
-- persona에서는 DPO 적용 후 두 탐지기의 ASR이 모두 향상되었고 acute 비율은 0.5%였습니다.
-- petition과 wiki에서도 DPO의 ASR이 향상되었으나 acute 비율이 함께 증가했으며, 특히 wiki는 9.4%로 나타났습니다.
-
-### Repetition diagnostics
-
-문장 재사용과 근사 중복은 문장쌍 1,000개당 발생량으로 보고합니다. 도메인마다 인간 문서의
-기준선이 다르므로 도메인 간 절댓값은 직접 비교하지 않습니다.
-
-| domain | human reuse | DPO reuse | human approximate | DPO approximate |
-| --- | ---: | ---: | ---: | ---: |
-| essay | 0.42 | 1.51 | 14.29 | 20.73 |
-| persona | 0.87 | 1.09 | 125.34 | 123.15 |
-| petition | 1.14 | 13.92 | 43.32 | 50.97 |
-| wiki | 4.25 | 12.58 | 44.44 | 43.30 |
-
-### Attribution and release boundary
-
-이 연구는 과학기술정보통신부의 재원으로 한국지능정보사회진흥원의 지원을 받아 구축된
-AI Hub의 「에세이 글 평가 데이터」와 「페르소나 대화」를 활용했습니다. 국민청원 데이터는
-Hugging Face의 `dev7halo/bluehouse-national-petition`(Apache-2.0)을, 위키 데이터는
-Wikimedia의 한국어 위키백과 덤프(CC BY-SA)를 활용했습니다.
-
-공개 범위는 집계 통계와 평가 코드로 제한합니다. 인간 원문, AI 재서술문, 프롬프트,
-문서별 점수, 데이터 분할 식별자, 모델 체크포인트와 검수 자료는 배포하지 않습니다.
-
-## Research records
-
-실험 결과, checkpoint 계보, 도메인별 분석과 실패 기록은 [notes/README.md](notes/README.md)와
-[progress.md](progress.md)에 있습니다. 데이터 명세는 [mash/DATASET.md](mash/DATASET.md),
-별도 반복학습 실험은 [loop/README.md](loop/README.md)를 참고합니다.
-
-방법론은 MASH와 Russell et al.의 text-humanization 및 탐지 회피 평가 설정을 바탕으로 합니다.
+- [MASH: Evading Black-Box AI-Generated Text Detectors via Style Humanization](https://arxiv.org/abs/2601.08564)
+- [KoBART](https://huggingface.co/gogamza/kobart-base-v2), [KLUE-RoBERTa](https://huggingface.co/klue/roberta-base), [KoELECTRA](https://huggingface.co/monologg/koelectra-base-v3-discriminator)
+- [DaleSeo/korean-skills](https://github.com/DaleSeo/korean-skills) — baseline의 원본 프롬프트. [MIT 라이선스 고지](baselines/LICENSE.humanizer)를 포함합니다.
+- 데이터 출처와 사용한 트랙: [docs/data.md](docs/data.md)

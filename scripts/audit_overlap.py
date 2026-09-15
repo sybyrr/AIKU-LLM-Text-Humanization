@@ -4,9 +4,10 @@ clean20k train↔test 분리, 폐기본 news_dpair_final의 722 누수 대조, D
 
 읽기 전용. 사용: python audit_overlap.py
 """
-import json, collections, numpy as np
+import argparse, json, collections, numpy as np
+from pathlib import Path
 
-NT = "/workspace/dataset/news_track"
+NT = Path(__file__).resolve().parents[1] / "dataset/news_track"
 
 
 def ids(path, split=None):
@@ -19,9 +20,14 @@ def ids(path, split=None):
 
 
 def main():
-    det = json.load(open(f"{NT}/detector_split.json"))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data-dir", type=Path, default=NT,
+                        help="뉴스 pair·detector_split·pool_scores가 있는 디렉터리")
+    args = parser.parse_args()
+    track_dir = args.data_dir
+    det = json.load(open(f"{track_dir}/detector_split.json"))
     D = set(det["detector"]); POOL = set(det.get("pool", []))
-    clean = f"{NT}/news_dpair_clean20k.jsonl"
+    clean = f"{track_dir}/news_dpair_clean20k.jsonl"
     c_all = ids(clean); c_tr = ids(clean, "train"); c_dev = ids(clean, "dev"); c_te = ids(clean, "test")
 
     print("=" * 66)
@@ -39,7 +45,7 @@ def main():
     print(f"    test  ∩ D학습              = {len(c_te & D)}   (0이어야 함)")
 
     # [3] 폐기본 대조
-    finalp = f"{NT}/news_dpair_final.jsonl"
+    finalp = f"{track_dir}/news_dpair_final.jsonl"
     try:
         f_all = ids(finalp)
         print("[3] 폐기본 news_dpair_final.jsonl (오염 — 사용금지)")
@@ -49,7 +55,7 @@ def main():
 
     # [4] D 실측 품질 (held-out pool 채점)
     try:
-        rows = [json.loads(l) for l in open(f"{NT}/pool_scores.jsonl")]
+        rows = [json.loads(l) for l in open(f"{track_dir}/pool_scores.jsonl")]
         hs = np.array([r["score"] for r in rows if r.get("kind") == "human"])
         ai = np.array([r["score"] for r in rows if r.get("kind") not in ("human", None)])
         allv = np.concatenate([hs, ai]); y = np.array([0] * len(hs) + [1] * len(ai))

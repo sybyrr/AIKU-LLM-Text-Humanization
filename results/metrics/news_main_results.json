@@ -1,0 +1,39 @@
+{
+  "domain": "news",
+  "test_n": 2044,
+  "conditions": [
+    "SFT",
+    "DPOP"
+  ],
+  "raw_asr_percent": {
+    "RoBERTa": [
+      72.8,
+      79.6
+    ],
+    "SCRN": [
+      63.3,
+      71.3
+    ]
+  },
+  "semantic_cosine": [
+    0.988,
+    0.988
+  ],
+  "collapse_percent": [
+    0.3,
+    0.8
+  ],
+  "rates_are_reported_rounded_values": true,
+  "source": "results/reports/cross_domain_current6_full_20260909.html",
+  "source_sections": [
+    "36개 조합 상세 수치: news → news"
+  ],
+  "protocol_source": "pipeline/evaluate.py",
+  "notes": [
+    "Raw ASR is the fraction of all outputs passing the detector; collapse is reported separately.",
+    "Each detector threshold is the 95th percentile of human scores in the evaluation set, not 0.5.",
+    "Semantic cosine compares generator output with the original AI input using ko-sroberta-multitask, truncated at 256 tokens.",
+    "Acute collapse: a whitespace-free character 6-gram repeated more than 20 times.",
+    "This full-test comparison does not include the separate matched-n100 prompting baseline."
+  ]
+}

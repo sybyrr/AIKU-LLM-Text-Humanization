@@ -1,54 +1,50 @@
-# scripts/ — 파이프라인 스크립트 지도
+# Scripts
 
-정본 실행: [../pipeline/README.md](../pipeline/README.md) · 연구 기록: [../notes/README.md](../notes/README.md)
+주 실행기는 [`pipeline/run.py`](../pipeline/run.py)입니다.
+입력 준비와 명령은 [실행 가이드](../docs/reproduction.md), 데이터 구성은
+[데이터 안내](../docs/data.md), 모델·지표 정의는 [방법론](../docs/methodology.md)에 있습니다.
 
-> 새 실행은 [../pipeline/run.py](../pipeline/README.md)를 진입점으로 사용합니다. 이 디렉터리는
-> 단계별 구현체와 연구용 분석 도구를 보관하며, 정본 설정·재개·평가는 pipeline/에서 관리합니다.
+## 데이터 구축과 학습
 
-데이터·모델은 저장소에 없다(라이선스 — 루트 README 참조). 아래 스크립트는 `dataset/`·`models/` 를
-로컬에 배치한 상태에서 돕니다.
-
-## Stage 1–3 정본 파이프라인 (도메인 무관)
-
-| 순서 | 스크립트 | 역할 |
-| --- | --- | --- |
-| 1a | `mash_extract_pool.py` | (신문) 인간 원문 추출 → `human_pool.jsonl`. **도메인마다 새로 작성**하는 유일한 단계 |
-| 1b | `build_domain_prompts.py` | P3b 통일 프롬프트 조립 (전 도메인 공용, `rewrite_ko` 대체) |
-| 1b | `generate.py` | llama-server 병렬 생성 (`--resume`) → x_ai |
-| 1c | `domain_gate.py` | 도메인 탐지기 D 동결 학습 + 게이트(d_human<τ AND d_ai≥τ). `--frozen-only` 제외 가드 포함 |
-| 1d | `build_clean_dataset.py` | 게이트 여러 번(코어·확장·top-up) 합칠 때: D학습 제외·문서 dedup·분할·누수 0 검증 (선택) |
-| 2 | `stage2_sft.py` | StyleBART(concat fusion + EOS) SFT, 이중경로 λ0.5 |
-| 3 | `stage3_build_dpo.py` → `stage3_dpo.py` | hard-neg 채굴 → **DPOP λ5** (플래그 명시 필수 — 기본값은 vanilla) |
-| legacy | `news_gate_frozen.py` | `domain_gate.py`의 과거 도메인 전용 파일명 |
-| legacy | `run_domain_pipeline.sh` | 과거 셸 오케스트레이터. 새 실행은 `pipeline/run.py` 사용 |
-
-## 평가 · 시각화
-
-| 스크립트 | 역할 |
+| 파일 | 역할 |
 | --- | --- |
-| `../pipeline/evaluate.py` | 정본 held-out 평가: raw ASR·collapse·cosine·반복 진단 |
-| `../pipeline/metrics_redundancy.py` | 정본 급성붕괴·문장 재사용·근사중복 정의 |
-| `eval_collapse.py` | 과거 checkpoint 단독 붕괴 분석 |
-| `analyze_domain.py` | roberta-D CLS 특징 t-SNE + D/SCRN P(AI) |
-| `scrn_train.py` / `scrn_score.py` | 도메인별 독립 탐지기 SCRN(koelectra) 학습·채점 |
-| `detect_binoculars.py` / `detect_fastdetectgpt.py` / `detect_llm_judge.py` | 전이(zero-shot·LLM) 탐지기 |
-| `build_humanizer_skill_baseline.py` | 동일 held-out 문서의 Humanizer-skill 프롬프트 입력과 고정 shard 구성 |
-| `run_humanizer_skill_baseline.py` | 20편 생성·평가·게이트 후 100편으로 확장하는 기준선 오케스트레이터 |
-| `eval_humanizer_skill_baseline.py` | 프롬프트 출력의 D·SCRN·의미 cosine·반복 지표 평가 |
-| `summarize_humanizer_skill_baseline.py` | x_ai·SFT·DPO·Humanizer-skill 비교와 파일럿 품질 게이트 집계 |
-| `zero_shot_matrix.py` | 여러 평가 결과의 텍스트 중복 제거와 Binoculars·FastDetectGPT 분산·재개 채점 |
-| `run_zero_shot_matrix.sh` / `watch_zero_shot_matrix.sh` | GPU shard 실행과 중간 종료 자동 복구·완료 검증 |
-| `summarize_zero_shot_matrix.py` | 6×6 전량 및 프롬프트 기준선 zero-shot 집계 JSON·결과 전용 HTML 생성 |
-| `metrics_quality.py` | BERTScore-F1 의미 보존 |
-| `audit_overlap.py` | 누수 감사 (∩D학습=0, train∩test=0) |
-| `make_dpo_review.py` / `make_stage2_review.py` | SFT/DPO 검수 HTML |
+| `download_corpus.py` | 국립국어원 말뭉치 다운로드 보조 |
+| `mash_extract_pool.py` | 신문 2022판에서 2021년 인간 기사 추출, `--corpus`로 ZIP 지정 |
+| `build_domain_prompts.py` | 전 도메인 공통 P3b inverse rewriting prompt |
+| `generate.py` | llama-server 병렬 생성·재개 |
+| `domain_gate.py` | RoBERTa 학습 문서 분리·동결·Human/AI 후보 선별·분할 |
+| `build_clean_dataset.py` | 선별 결과 병합·D 학습 문서 제외·기사 중복 제거·재분할 |
+| `stage2_sft.py` | 공유 fusion과 AI/Human 스타일 벡터를 쓰는 StyleBART SFT |
+| `stage3_build_dpo.py` | SFT 후보 중 RoBERTa가 잡는 hard negative 채굴 |
+| `stage3_dpo.py` | DPO/DPOP preference 학습 |
 
-## 초록(KCI) 트랙 — 별도 도메인 구축
+`stage3_dpo.py`의 기본값은 vanilla DPO입니다. DPOP 실험은
+`--dpop --length-norm --beta 2`를 사용하며, 전체 설정은
+[news config](../pipeline/configs/news.example.json)에 있습니다.
 
-`collect_kci*.py`, `stage0_*.py`, `build_human_pool.py`, `build_final_dataset.py` 는 초록(KCI 논문 초록)
-도메인의 수집·검사·조립이다(카피킬러 게이트 기반, 별도 명세는 `../mash/PIPELINE.md` 참고). Stage 2–3
-학습은 위 정본 파이프라인과 공유합니다.
+## 평가와 분석
 
-## 서버 · 유틸
+| 파일 | 역할 |
+| --- | --- |
+| `../pipeline/evaluate.py` | held-out 생성·RoBERTa/SCRN·cosine·반복 평가 |
+| `../pipeline/metrics_redundancy.py` | 문자 6-gram 붕괴·문장 재사용·근사중복 지표 |
+| `scrn_train.py`, `scrn_score.py` | KoELECTRA 기반 SCRN detector 학습·채점 |
+| `analyze_domain.py` | RoBERTa CLS 표현의 t-SNE; test 앞 N개 사용 |
+| `audit_overlap.py` | pair와 D 학습·generator train/test 문서 겹침 확인 |
+| `eval_collapse.py` | checkpoint별 반복 붕괴 진단 |
+| `metrics_quality.py` | 별도 BERTScore-F1 분석 |
+| `make_stage2_review.py`, `make_dpo_review.py` | 원문·생성문 비교 HTML 작성 |
+| `figures/` | 집계 결과의 그래프 재생성 |
 
-`gpu_serve.sh`(llama-server 기동), `run_pilot.sh` 등은 생성 서버·파일럿 실행 보조입니다.
+## Prompting baseline과 실행 환경
+
+| 파일 | 역할 |
+| --- | --- |
+| `build_humanizer_skill_baseline.py` | 동일 held-out 입력·prompt shard 준비 |
+| `run_humanizer_skill_baseline.py` | 20편 파일럿 후 100편 비교 실행 |
+| `eval_humanizer_skill_baseline.py` | baseline의 RoBERTa/SCRN·cosine·반복 평가 |
+| `summarize_humanizer_skill_baseline.py` | matched baseline 비교·품질 게이트 집계 |
+| `gpu_serve.sh` | llama-server 기동 보조; 실행 환경의 경로·GPU 옵션 설정 |
+
+Baseline prompt와 설정은 [`baselines/`](../baselines/README.md),
+D1 적응·G2 추가 학습과 CopyKiller 평가는 [`adversarial/`](../adversarial/README.md)에 있습니다.

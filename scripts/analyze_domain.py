@@ -6,6 +6,7 @@
 Okabe-Ito 색맹안전 팔레트. 라벨은 영문(matplotlib 한글폰트 회피)."""
 import matplotlib; matplotlib.use("Agg")
 import argparse, json, torch, torch.nn as nn, numpy as np, matplotlib.pyplot as plt
+from pathlib import Path
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from sklearn.manifold import TSNE
 from stage2_sft import StyleBART, MODEL
@@ -58,7 +59,7 @@ def main():
     ap.add_argument("--roberta", required=True); ap.add_argument("--pairs", required=True)
     ap.add_argument("--n", type=int, default=80)
     ap.add_argument("--out", required=True)
-    ap.add_argument("--scrn", default="/workspace/models/news_scrn/scrn_best.pt")
+    ap.add_argument("--scrn", default=str(Path(__file__).resolve().parents[1] / "models/news_scrn/scrn_best.pt"))
     args = ap.parse_args()
 
     tok = AutoTokenizer.from_pretrained(MODEL)

@@ -8,6 +8,7 @@
         --out ../dataset/news_track/transfer_scrn.jsonl
 """
 import argparse, json, torch
+from pathlib import Path
 from transformers import AutoTokenizer
 from scrn_train import SCRN, BACKBONE, DEV, NT
 
@@ -28,7 +29,7 @@ def main():
     ap.add_argument("--human", default=f"{NT}/transfer_human.jsonl")
     ap.add_argument("--gen", default=f"{NT}/transfer_gen.jsonl")
     ap.add_argument("--out", default=f"{NT}/transfer_scrn.jsonl")
-    ap.add_argument("--best", default="/workspace/models/news_scrn/scrn_best.pt")
+    ap.add_argument("--best", default=str(Path(__file__).resolve().parents[1] / "models/news_scrn/scrn_best.pt"))
     args = ap.parse_args()
 
     tok = AutoTokenizer.from_pretrained(BACKBONE)

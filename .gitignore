@@ -1,118 +1,72 @@
-# 공개 저장소 기준. 원칙: 코드와 문서만 올린다.
-# 코퍼스에서 나온 텍스트가 들어 있는 파일은 전부 제외하고, 그런 데이터는
-# Google Drive 로 팀 내부에만 공유한다. (근거: progress.md § 공개 범위)
-#
-# 주의: gitignore 는 줄 끝 주석을 지원하지 않는다. 설명은 반드시 별도 줄에 쓸 것.
+# Public repository: code, configuration examples, documentation and aggregate figures.
+# Local copies of research records, source texts and reference documents are retained here.
+/local_archive/
 
-# ── 에이전트 지시 파일 ───────────────────────────────────────
-# 다른 사람이 clone 하면 그 사람의 코딩 에이전트에 자동 로딩돼 우리 규칙이 강제된다.
-# 사람이 읽어야 할 내용(폴더 지도·재현 절차)은 README.md 로 옮겼다.
+# Local agent instructions and editor state
+AGENTS.md
 CLAUDE.md
 .claude/
-AGENTS.md
 .cursorrules
 .github/copilot-instructions.md
+.DS_Store
 
-# ── 비밀 · 개인정보 (절대 커밋 금지) ─────────────────────────
-# .kli_api_key = 국립국어원 API 키, .API_KEY = 공공데이터포털 KCI 인증키
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
 .kli_api_key
 .API_KEY
-# .claude.json 백업 = 사용자 이메일 + 세션 대화 전문
-archive/claude-home-backup/
-
-# ── 환경 · 대용량 ────────────────────────────────────────────
-.venv/
-__pycache__/
-# 허깅페이스 모델 캐시 (KoBART 토크나이저 등)
-.hf_cache/
-*.pyc
-.DS_Store
-# llama.cpp 빌드 바이너리 (환경마다 재빌드)
-tools/
-# GGUF 9.2GB
-models/
-# 국립국어원 공식 배포 zip 1.8GB
-corpus/raw/
-corpus/mirror/*.parquet
-
-# ── 제3자 저작물 ─────────────────────────────────────────────
-# 논문 전문 변환본
-MASH.md
-# AI Hub 약관: 승인받지 않은 제3자 열람 금지
-archive/aihub_essay_2024_raw/
-# 전수 조사 문서 — 근거로 학생 글 13곳을 원문 그대로 인용했다.
-# 원본은 초5~중2 학생 작문이라 공개 저장소에 올릴 수 없다(미성년자 저작물 + 약관).
-# 판정 결론만 담은 mash/aihub_verdict.md 는 인용이 없어 공개 대상이다.
-mash/aihub_essay_inventory.md
-
-# ── 코퍼스 텍스트가 든 데이터 (Drive 로) ─────────────────────
-# 국립국어원 모두의 말뭉치 제12조(사전 승낙 없는 전송 금지) · KCI 초록 저작권.
-# 프롬프트 파일도 대상이다 — 조건 B 는 기사 도입부 2문장, 조건 A 는 제목,
-# 조건 C 는 요약문을 원문 그대로 담고 있다.
-*.jsonl
-# 압축본도 같은 내용이다 (data/ 의 인간 풀·생성물·카피킬러 점수)
-*.jsonl.gz
-# 학습 루프 산출물 — 체크포인트·생성물·지표 (코드와 설정만 커밋한다)
-loop/runs/
-# CPU 스모크 산출물 (tiny 체크포인트·로그, 재실행하면 다시 생김)
-loop/smoke/_run/
-loop/smoke/_smoke_out.log
-# 검수 페이지에 인간 원문·AI 재서술 전문이 박혀 있음
-review/*.html
-review/*.json
-# 탐지기 업로드용 docx·zip = 원문 그대로
-pilot/export/
-# 카피킬러 결과확인서 PDF (검사 문서명 목록 포함)
-pilot/scores/copykiller/
-# 인간 풀 · 프롬프트 · 생성물 · 점수 전부
-dataset/
-# 배포 아카이브 일체 (인수받은 KCI 원본 zip, 탐지기 업로드 묶음 등)
-*.zip
-# 파일럿 검수 카드 — 폐기된 조건 B 프롬프트(기사 도입부 2문장 원문)가 들어 있다
-archive/pilot/
-pilot/*.json
-
-# ── 실행 중인 로그 ───────────────────────────────────────────
-# 프로세스가 지금도 append 중이라 커밋할 때마다 트리가 더러워진다.
-# 작업이 끝나면 -f 로 한 번 추가해 최종본만 남긴다.
-logs/gen_full_p3b.log
-logs/server_8081_Qwen3-8B-Q4_K_M.log
-
-# ── 탐지기 업로드용 문서 묶음 ────────────────────────────────
-# 인간 원문·AI 재서술 전문이 그대로 들어 있다. manifest.csv 는 라벨 정답표다.
-mash/copykiller_batches/
-mash/copykiller_v2/
-mash/copykiller_v2_zip/
-# 어떤 경로에 있든 docx 는 곧 원문 사본이다
-*.docx
-
-# ── PDF ──────────────────────────────────────────────────────
-# 카피킬러 결과확인서, 발표 자료(AIKU 워터마크: 무단 도용·활용 금지) 등
-*.pdf
-# 로컬 파이프라인 설정(경로·서버 주소가 들어갈 수 있음)
 pipeline/config.*.json
 !pipeline/config.example.json
-# 프롬프트 기준선의 로컬 데이터·모델 경로 설정
+pipeline/configs/*.local.json
 baselines/config.local.json
 
+# Environments, model caches and binaries
+.venv/
+.venv-adversarial/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.hf_cache/
+tools/
+models/
+*.pt
+*.pth
+*.safetensors
+*.gguf
 
-# ── 실행 로그 ────────────────────────────────────────────────
-# llama-server 원시 출력·변환·양자화·중단된 judge 로그. 2.5MB.
-# 의미 있는 사실은 notes/42 와 progress.md 에 이미 요약돼 있고, 로그는 재실행하면 다시 생긴다.
-# 로컬에는 그대로 남는다(증거 보존) — 저장소에만 올리지 않는다.
+# Corpus text, generated pairs, per-document scores and run outputs
+dataset/
+corpus/raw/
+corpus/mirror/*.parquet
+*.jsonl
+*.jsonl.gz
 logs/
+review/
+adversarial/runs/
+adversarial/smoke/_run/
+adversarial/smoke/_smoke_out.log
+# Old run paths are ignored too, so restoring older local experiments is safe.
+loop/runs/
+loop/smoke/_run/
+loop/smoke/_smoke_out.log
+pilot/export/
+pilot/scores/copykiller/
+tmp/
 
-# ── Notion export 이미지 ─────────────────────────────────────
-# 회의록 md 는 남기고 첨부 이미지(1.2MB)만 뺀다.
+# Reference documents and exports containing original text
+MASH.md
+*.pdf
+*.pptx
+*.docx
+*.zip
+*.gz
+*.tgz
+
+# Images are published only in the aggregate figure directory.
 *.png
 *.jpg
 *.jpeg
-
-# ── 압축 데이터 ──────────────────────────────────────────────
-*.gz
-*.tgz
-# Drive 반출용 준비 폴더 — 문서는 mash/·루트에 원본이 있고 여기 것은 사본이다
-mash/drive_upload/
-
-# 로컬 검증용 임시 산출물
-tmp/
+!results/figures/*.png
+!results/figures/*.jpg
+!results/figures/*.jpeg

@@ -2,10 +2,11 @@
 """SCRN (Siamese Calibrated Reconstruction Network) — 한국어 신문 트랙, 전이-평가 탐지기(역할 ②).
 
 논문: "Are AI-Generated Text Detectors Robust to Adversarial Perturbations?" (ACL 2024, arXiv 2406.01179).
-우리 파이프라인 D(klue-roberta-base)와 **다른 계열/더 큰** xlm-roberta-large 백본 → 강건성·도메인일반화·독립성.
+우리 파이프라인 D(klue/roberta-base)와 별도로 학습하는 KoELECTRA 기반 SCRN-style detector.
+Generator 학습에는 사용하지 않고 별도 평가에 사용한다.
 
 구조(β-VAE 해석 — 논문 "노이즈 주입→복원"이 reparameterization trick과 동치):
-  h = encoder(x)[:,0]                      # CLS pooled (1024d)
+  h = encoder(x)[:,0]                      # CLS pooled (백본 hidden size)
   z_s = enc_s(h); z_p = enc_p(h)           # 평균 / 로그분산 (각 dz=512)
   갈래 k=1,2: eps_k~N(0,I); z̃_k = z_s + eps_k·exp(½ z_p)
              recon_k = dec(z̃_k)→h ,  logits_k = clf(z̃_k)
@@ -16,7 +17,8 @@
   L = λ1 L_cls + λ2 L_re + λ3 L_sc                        # 0.5, 0.01, 0.5 (논문)
 추론: 노이즈 없이 z_s → clf → P(AI) ("클수록 AI" = Binoculars와 같은 방향).
 
-데이터: news_dpair_clean20k.jsonl (train: human=0, ai=1 / dev로 best 선택).
+입력: --pairs의 train/dev split (human=0, ai=1 / dev로 best 선택).
+Detector 전용 split을 재현하려면 그 split으로 준비한 pair 파일을 명시해야 한다.
 안전: epoch 체크포인트+resume, 200스텝 로그, best-dev 저장, SCRN_DONE/SCRN_FAIL 센티넬.
 사용: python scrn_train.py --epochs 3 --bs 8 --accum 2
 """
@@ -25,7 +27,7 @@ import torch, torch.nn as nn, torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer, AutoModel, get_linear_schedule_with_warmup
 
-NT = "/workspace/dataset/news_track"
+NT = str(pathlib.Path(__file__).resolve().parents[1] / "dataset/news_track")
 DEV = "cuda:0"
 BACKBONE = "monologg/koelectra-base-v3-discriminator"   # ELECTRA base(110M): D(klue-roberta)와 다른 구조=독립성↑, TITAN Xp에 빠름
 
@@ -56,7 +58,7 @@ class SCRN(nn.Module):
     def __init__(self, backbone=BACKBONE, dz=512):
         super().__init__()
         self.enc = AutoModel.from_pretrained(backbone)
-        d = self.enc.config.hidden_size            # 1024
+        d = self.enc.config.hidden_size
         self.dz = dz
         self.enc_s = nn.Linear(d, dz)              # 평균
         self.enc_p = nn.Linear(d, dz)              # 로그분산
@@ -127,7 +129,7 @@ def eval_split(model, dl):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--pairs", default=f"{NT}/news_dpair_clean20k.jsonl")
-    ap.add_argument("--out-dir", default="/workspace/models/news_scrn")
+    ap.add_argument("--out-dir", default=str(pathlib.Path(__file__).resolve().parents[1] / "models/news_scrn"))
     ap.add_argument("--epochs", type=int, default=3)
     ap.add_argument("--bs", type=int, default=8)
     ap.add_argument("--accum", type=int, default=2)
