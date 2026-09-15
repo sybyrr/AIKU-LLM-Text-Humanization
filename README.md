@@ -76,14 +76,14 @@ Generator split은 train **16,266**, dev **2,033**, test **2,044**입니다.
 
 DPOP 이후 두 detector에 대한 ASR이 높아졌고 의미 cosine은 유지됐습니다. 붕괴율은 0.5%p 증가했습니다.
 
-![뉴스 주 실험](results/figures/news_main_results.png)
+<img src="results/figures/news_main_results.png" alt="뉴스 주 실험" width="70%">
 
 [집계 수치·조건](results/metrics/news_main_results.json)
 
 뉴스 test 중 200개 기사 ID의 Human·AI·SFT·DPOP 텍스트에서 RoBERTa CLS 표현을 추출해 t-SNE로 시각화했습니다.
 SFT·DPOP 출력이 인간 원문과 겹치는 영역을 보였지만, 이는 detector의 표현 공간에 대한 보조 결과입니다.
 
-![뉴스 test의 RoBERTa 표현 t-SNE](results/figures/news_tsne_original.png)
+<img src="results/figures/news_tsne_original.png" alt="뉴스 test의 RoBERTa 표현 t-SNE" width="70%">
 
 ### 2. Prompting baseline
 
@@ -117,7 +117,7 @@ Petition·Wiki는 `petition512B`·`wiki512B` 트랙을 사용했습니다.
 DPOP의 평균 ASR은 향상됐으나 다른 도메인으로 전이할 때 성능이 크게 낮아졌습니다.
 일부 조합에는 반복 붕괴도 많아 raw ASR만으로 성공적인 변환이라 판단하기 어렵습니다.
 
-![교차도메인 DPOP ASR](results/figures/cross_domain_heatmap.png)
+<img src="results/figures/cross_domain_heatmap.png" alt="교차도메인 DPOP ASR" width="70%">
 
 [36조합 전량 보고서](results/reports/cross_domain_current6_full_20260909.html) · [집계 JSON](results/metrics/cross_domain_results.json)
 
@@ -135,7 +135,7 @@ DPOP의 평균 ASR은 향상됐으나 다른 도메인으로 전이할 때 성�
 D1은 G1 출력을 훨씬 잘 탐지했습니다. 추가 DPOP의 효과는 D1·CopyKiller에서 소폭 개선, D0에서는 감소로 나타났습니다.
 CopyKiller는 AI 작성률 50%를 기준으로 판정했으며 generator 학습에는 사용하지 않았습니다.
 
-![추가 DPOP 비교](results/figures/adversarial_generator_comparison.png)
+<img src="results/figures/adversarial_generator_comparison.png" alt="추가 DPOP 비교" width="70%">
 
 [추가 학습 방법](docs/adversarial_alignment.md) · [실행 방법](adversarial/README.md) · [상세 결과](adversarial/RESULTS.md)
 
@@ -155,7 +155,7 @@ G1·G2의 사람 글 판단율은 원본 AI보다 낮았습니다.
 다만 버전별 표본이 50건이고 각 기사·버전을 한 명만 평가했으므로 모델 간 차이를 해석하는 데 한계가 있습니다.
 이 설문은 작성 주체에 대한 판단을 측정했으며, 자연스러움과 내용 보존은 별도로 평가할 필요가 있습니다.
 
-![사람 평가](results/figures/human_evaluation_results.png)
+<img src="results/figures/human_evaluation_results.png" alt="사람 평가" width="70%">
 
 [사람 평가 보고서](results/reports/human_eval_results_share_20260907.md)
 
