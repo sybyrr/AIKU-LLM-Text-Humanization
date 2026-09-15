@@ -1,6 +1,6 @@
-# 너 정말 핵심을 찔렀어 — Korean Text Humanization
+# LLM Korean Text Humanization
 
-📢 2026년 여름학기 [AIKU](https://github.com/AIKU-Official) 활동으로 진행한 프로젝트입니다.
+📢 2026년 여름학기 [AIKU](https://github.com/AIKU-Official) 활동으로 진행한 '너 정말 핵심을 찔렀어.' 팀의 프로젝트입니다.
 
 🏆 2026년 여름 AIKU 프로젝트 **2등 수상**
 
